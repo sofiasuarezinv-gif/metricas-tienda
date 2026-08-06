@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Métricas de Tienda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#08080d;--bg1:#101019;--bg2:#181824;--bg3:#212030;--line:#2a2840;
+    --ink:#ece9f5;--sub:#948fb0;--dim:rgba(255,255,255,.06);
+    --purple:#a78bfa;--purple2:#7c5cff;--green:#34d399;--red:#f87171;--amber:#f59e0b;--cyan:#38bdf8;--pink:#f472b6;
+    --shadow:0 18px 40px -22px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg0);color:var(--ink);font-family:"Inter",system-ui,sans-serif;font-size:14.5px;-webkit-font-smoothing:antialiased}
+  .app{display:flex;min-height:100vh}
+  /* Sidebar */
+  .side{width:230px;flex-shrink:0;background:linear-gradient(180deg,var(--bg1),var(--bg0));border-right:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;padding:0 6px}
+  .brand .lg{width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,var(--purple2),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:19px}
+  .brand h1{font-size:16px;font-weight:800;margin:0;line-height:1.1}
+  .brand p{margin:0;font-size:10.5px;color:var(--sub)}
+  .nav{display:flex;flex-direction:column;gap:3px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--sub);text-decoration:none;font-weight:600;font-size:13.5px;cursor:pointer}
+  .nav a:hover{background:var(--bg2);color:var(--ink)}
+  .nav a.active{background:rgba(124,92,255,.16);color:var(--purple)}
+  .nav .sep{height:1px;background:var(--line);margin:10px 4px}
+  .main{flex:1;padding:26px 30px;min-width:0}
+  @media(max-width:820px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:6px}.nav{flex-direction:row;flex-wrap:wrap}.brand{width:100%}}
+
+  h2.title{font-size:22px;font-weight:800;margin:0 0 4px}
+  .muted{color:var(--sub);font-size:13px;margin:0 0 20px}
+
+  /* Filtros fecha */
+  .filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:22px}
+  .filters button{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:8px 13px;border-radius:9px;font:600 12.5px "Inter";cursor:pointer}
+  .filters button:hover{color:var(--ink)} .filters button.active{background:var(--purple2);border-color:var(--purple2);color:#fff}
+  .filters select{background:var(--bg2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:9px;font:600 12.5px "Inter"}
+
+  .sec-h{font-size:13px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.06em;margin:26px 0 12px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+  .stat{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .stat .k{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:flex;gap:6px;align-items:center}
+  .stat .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .s{font-size:11.5px;color:var(--sub);margin-top:6px}
+  .stat.pur{border-color:var(--purple2);background:linear-gradient(150deg,rgba(124,92,255,.12),rgba(16,16,25,.5))}
+  .stat.pur .v{color:var(--purple)}
+  .stat.grn .v{color:var(--green)} .stat.red .v{color:var(--red)} .stat.cyan .v{color:var(--cyan)} .stat.amb .v{color:var(--amber)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--sub);background:var(--bg2)}
+  tr:last-child td{border-bottom:0}
+  td.num{font-variant-numeric:tabular-nums;font-weight:600}
+  .tablewrap{overflow-x:auto}
+
+  .panel{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:640px;box-shadow:var(--shadow)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
+  .field input{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font:500 14px "Inter";outline:none}
+  .field input:focus{border-color:var(--purple)}
+  .btn{background:var(--purple2);border:none;color:#fff;padding:11px 20px;border-radius:11px;font:700 14px "Inter";cursor:pointer}
+  .btn:hover{filter:brightness(1.08)} .btn.ghost{background:var(--bg2);border:1px solid var(--line);color:var(--ink)}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:32px;text-align:center;color:var(--sub);cursor:pointer;background:var(--bg2)}
+  .drop:hover{border-color:var(--purple)}
+  .msg{font-size:13px;font-weight:600;margin-top:10px} .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
+  .empty{text-align:center;color:var(--sub);padding:50px 20px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--purple);color:var(--ink);padding:12px 20px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;z-index:80}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="lg">📊</div><div><h1>Métricas Tienda</h1><p>Pedidos Dropi · rentabilidad</p></div></div>
+    <nav class="nav">
+      <a class="active" id="nav-dashboard" onclick="go('dashboard')">📊 Dashboard</a>
+      <a id="nav-diario" onclick="go('diario')">📅 Diario</a>
+      <a id="nav-transp" onclick="go('transp')">🚚 Transportadoras</a>
+      <div class="sep"></div>
+      <a id="nav-inversion" onclick="go('inversion')">💰 Inversión</a>
+      <a id="nav-subir" onclick="go('subir')">⬆️ Subir reporte</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <!-- filtros compartidos -->
+    <div id="rangebar">
+      <div class="filters" id="filters">
+        <button data-r="total" class="active" onclick="setRange('total')">Total</button>
+        <button data-r="hoy" onclick="setRange('hoy')">Hoy</button>
+        <button data-r="ayer" onclick="setRange('ayer')">Ayer</button>
+        <button data-r="7d" onclick="setRange('7d')">7 días</button>
+        <button data-r="mes" onclick="setRange('mes')">Este mes</button>
+        <button data-r="mesant" onclick="setRange('mesant')">Mes anterior</button>
+        <select id="mes-sel" onchange="setRange('pick')"><option value="">Elegir mes…</option></select>
+      </div>
+    </div>
+
+    <div id="view-dashboard"></div>
+    <div id="view-diario" style="display:none"></div>
+    <div id="view-transp" style="display:none"></div>
+
+    <div id="view-inversion" style="display:none">
+      <h2 class="title">💰 Inversión (Meta)</h2>
+      <p class="muted">Cargá la inversión por día a mano (todavía sin conexión a Meta). Alimenta CPA, ROAS y las métricas diarias.</p>
+      <div class="panel">
+        <div class="field"><label>Fecha</label><input type="date" id="inv-fecha"></div>
+        <div class="field"><label>Monto invertido ($)</label><input type="number" id="inv-monto" min="0" step="1000" placeholder="0"></div>
+        <button class="btn" onclick="guardarInv()">Guardar</button>
+        <span class="msg" id="inv-msg"></span>
+        <div id="inv-list" style="margin-top:20px"></div>
+      </div>
+    </div>
+
+    <div id="view-subir" style="display:none">
+      <h2 class="title">⬆️ Subir reporte de Dropi</h2>
+      <p class="muted">Subí el Excel de Dropi (.xlsx). Los pedidos se guardan para siempre y se <b>de-duplican por ID</b>: si un pedido ya estaba, se actualiza su estado (no se duplica). Se omiten los pedidos de prueba.</p>
+      <div class="panel">
+        <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+          <div style="font-size:30px">📄</div><div>Tocá para elegir el archivo .xlsx</div>
+        </div>
+        <input type="file" id="file" accept=".xlsx,.xls" style="display:none" onchange="subir(event)">
+        <div class="msg" id="up-msg"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const usd=n=>'$'+Math.round(n||0).toLocaleString('es-CO');
+const pct=n=>(isFinite(n)?(n*100).toFixed(1):'0')+'%';
+const dec=(n,d=2)=>(isFinite(n)?n:0).toLocaleString('es-CO',{maximumFractionDigits:d});
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200);}
+
+let ORDERS=[], INV={}, RANGE={type:'total'};
+const iso=d=>d.toISOString().slice(0,10);
+function today(){return iso(new Date());}
+function rangeDates(){
+  const now=new Date(); const t=iso(now);
+  if(RANGE.type==='total') return {from:'0000-00-00',to:'9999-99-99',label:'Total'};
+  if(RANGE.type==='hoy') return {from:t,to:t,label:'Hoy'};
+  if(RANGE.type==='ayer'){const y=new Date(now);y.setDate(y.getDate()-1);return {from:iso(y),to:iso(y),label:'Ayer'};}
+  if(RANGE.type==='7d'){const f=new Date(now);f.setDate(f.getDate()-6);return {from:iso(f),to:t,label:'Últimos 7 días'};}
+  if(RANGE.type==='mes'){const f=iso(new Date(now.getFullYear(),now.getMonth(),1));return {from:f,to:t,label:'Este mes'};}
+  if(RANGE.type==='mesant'){const f=new Date(now.getFullYear(),now.getMonth()-1,1);const l=new Date(now.getFullYear(),now.getMonth(),0);return {from:iso(f),to:iso(l),label:'Mes anterior'};}
+  if(RANGE.type==='pick'&&RANGE.mes){const [y,m]=RANGE.mes.split('-').map(Number);const l=new Date(y,m,0);return {from:RANGE.mes+'-01',to:iso(l),label:RANGE.mes};}
+  return {from:'0000-00-00',to:'9999-99-99',label:'Total'};
+}
+function setRange(type){
+  if(type==='pick'){RANGE={type:'pick',mes:$('#mes-sel').value};}
+  else{RANGE={type};$('#mes-sel').value='';}
+  document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.r===RANGE.type));
+  renderCurrent();
+}
+function inRange(fecha){const r=rangeDates();return fecha>=r.from&&fecha<=r.to;}
+
+// ─── Métricas ───
+function metrics(){
+  const r=rangeDates();
+  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
+  const canc=os.filter(o=>o.estado==='CANCELADO');
+  const ent=os.filter(o=>o.estado==='ENTREGADO');
+  const dev=os.filter(o=>o.estado==='DEVOLUCION');
+  const gen=os.length, despachados=gen-canc.length;
+  const sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
+  const facturacion=sum(os,'venta');
+  const factEnt=sum(ent,'venta');
+  const ganancia=sum(ent,'ganancia');
+  const flete=sum(os,'flete');
+  const proveedor=sum(ent,'proveedor');
+  const costoDev=dev.reduce((s,o)=>s+(o.flete||0)+(o.dev_flete||0),0);
+  // inversión de los días del rango
+  let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
+  return {os,gen,canc:canc.length,despachados,ent:ent.length,dev:dev.length,
+    facturacion,factEnt,ganancia,flete,proveedor,costoDev,inv,
+    cpa1:gen?inv/gen:0, cpa2:despachados?inv/despachados:0, cpa3:ent.length?inv/ent.length:0,
+    roas1:inv?facturacion/inv:0, roas2:inv?factEnt/inv:0, gananciaNeta:ganancia-inv,
+    pDesp:gen?despachados/gen:0, pCanc:gen?canc.length/gen:0, pEnt:despachados?ent.length/despachados:0, pDev:despachados?dev.length/despachados:0,
+    label:r.label};
+}
+const tile=(k,v,cls,s)=>`<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+
+function renderDashboard(){
+  const m=metrics();
+  $('#view-dashboard').innerHTML=`
+    <h2 class="title">📊 Dashboard</h2>
+    <p class="muted">${m.label} · ${m.gen} pedidos</p>
+    <div class="sec-h">Meta / Facebook</div>
+    <div class="cards">
+      ${tile('💰 Inversión',usd(m.inv),'pur')}
+      ${tile('🛒 Ventas',m.gen,'','pedidos generados')}
+      ${tile('🎯 CPA',usd(m.cpa1),'','inversión ÷ ventas')}
+      ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
+      ${tile('🚀 ROAS',dec(m.roas1)+'×','amb','facturación ÷ inversión')}
+    </div>
+    <div class="sec-h">Embudo de pedidos</div>
+    <div class="cards">
+      ${tile('Generados',m.gen,'')}
+      ${tile('Cancelados',m.canc,'red',pct(m.pCanc)+' de generados')}
+      ${tile('Despachados',m.despachados,'cyan',pct(m.pDesp)+' de generados')}
+      ${tile('Entregados',m.ent,'grn',pct(m.pEnt)+' de despachados')}
+      ${tile('Devoluciones',m.dev,'red',pct(m.pDev)+' de despachados')}
+    </div>
+    <div class="sec-h">CPA por etapa</div>
+    <div class="cards">
+      ${tile('CPA ventas',usd(m.cpa1),'','inv ÷ generados')}
+      ${tile('CPA despachados',usd(m.cpa2),'','inv ÷ despachados')}
+      ${tile('CPA entregados',usd(m.cpa3),'','inv ÷ entregados')}
+    </div>
+    <div class="sec-h">Rentabilidad ($)</div>
+    <div class="cards">
+      ${tile('Facturación',usd(m.facturacion),'grn')}
+      ${tile('Costo transportadoras',usd(m.flete),'red','flete total')}
+      ${tile('Costo proveedor',usd(m.proveedor),'red','entregados')}
+      ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
+      ${tile('Ganancia entregados',usd(m.ganancia),'grn')}
+      ${tile('ROAS entregados',dec(m.roas2)+'×','amb','fact. entregada ÷ inv')}
+      ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
+    </div>`;
+}
+
+function renderDiario(){
+  const r=rangeDates();
+  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
+  const days={};
+  os.forEach(o=>{ (days[o.fecha]=days[o.fecha]||[]).push(o); });
+  Object.keys(INV).forEach(d=>{ if(d>=r.from&&d<=r.to&&!days[d]) days[d]=[]; });
+  const fechas=Object.keys(days).sort().reverse();
+  let html=`<h2 class="title">📅 Diario</h2><p class="muted">${r.label} · un renglón por día</p>`;
+  if(!fechas.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-diario').innerHTML=html; return; }
+  html+=`<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Inversión</th><th>Ventas</th><th>Facturación</th><th>Entregados</th><th>CPA</th><th>ROAS</th></tr></thead><tbody>`;
+  fechas.forEach(d=>{
+    const list=days[d]; const gen=list.length;
+    const fac=list.reduce((s,o)=>s+(o.venta||0),0);
+    const ent=list.filter(o=>o.estado==='ENTREGADO').length;
+    const inv=+INV[d]||0;
+    html+=`<tr><td>${d}</td><td class="num">${usd(inv)}</td><td class="num">${gen}</td><td class="num">${usd(fac)}</td><td class="num">${ent}</td><td class="num">${gen&&inv?usd(inv/gen):'—'}</td><td class="num">${inv?dec(fac/inv)+'×':'—'}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  $('#view-diario').innerHTML=html;
+}
+
+function renderTransp(){
+  const r=rangeDates();
+  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
+  const g={};
+  os.forEach(o=>{ (g[o.transportadora]=g[o.transportadora]||[]).push(o); });
+  const nombres=Object.keys(g).sort((a,b)=>g[b].length-g[a].length);
+  let html=`<h2 class="title">🚚 Transportadoras</h2><p class="muted">${r.label} · desempeño por transportadora</p>`;
+  if(!nombres.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-transp').innerHTML=html; return; }
+  html+=`<div class="tablewrap"><table><thead><tr><th>Transportadora</th><th>Generados</th><th>Despachados</th><th>Cancelados</th><th>Entregados</th><th>Devoluciones</th><th>% Entrega</th><th>% Devolución</th></tr></thead><tbody>`;
+  nombres.forEach(t=>{
+    const l=g[t]; const gen=l.length;
+    const canc=l.filter(o=>o.estado==='CANCELADO').length;
+    const ent=l.filter(o=>o.estado==='ENTREGADO').length;
+    const dev=l.filter(o=>o.estado==='DEVOLUCION').length;
+    const desp=gen-canc;
+    html+=`<tr><td>${t}</td><td class="num">${gen}</td><td class="num">${desp}</td><td class="num" style="color:var(--red)">${canc}</td><td class="num" style="color:var(--green)">${ent}</td><td class="num" style="color:var(--red)">${dev}</td><td class="num">${desp?pct(ent/desp):'—'}</td><td class="num">${desp?pct(dev/desp):'—'}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  $('#view-transp').innerHTML=html;
+}
+
+function renderInvList(){
+  const rows=Object.entries(INV).sort((a,b)=>b[0].localeCompare(a[0]));
+  $('#inv-list').innerHTML = rows.length
+    ? `<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Inversión</th><th></th></tr></thead><tbody>${rows.map(([d,m])=>`<tr><td>${d}</td><td class="num">${usd(m)}</td><td><button class="btn ghost" style="padding:5px 10px;font-size:12px" onclick="borrarInv('${d}')">🗑️</button></td></tr>`).join('')}</tbody></table></div>`
+    : `<p class="muted">Todavía no cargaste inversión.</p>`;
+}
+
+// ─── Navegación ───
+let CURRENT='dashboard';
+function go(v){
+  CURRENT=v;
+  ['dashboard','diario','transp','inversion','subir'].forEach(k=>{
+    $('#view-'+k).style.display = k===v?'':'none';
+    $('#nav-'+k).classList.toggle('active',k===v);
+  });
+  $('#rangebar').style.display = (v==='dashboard'||v==='diario'||v==='transp')?'':'none';
+  renderCurrent();
+}
+function renderCurrent(){
+  if(CURRENT==='dashboard') renderDashboard();
+  else if(CURRENT==='diario') renderDiario();
+  else if(CURRENT==='transp') renderTransp();
+  else if(CURRENT==='inversion') renderInvList();
+}
+
+// ─── Datos ───
+async function load(){
+  try{ ORDERS=await (await fetch('/api/orders')).json(); }catch(e){ ORDERS=[]; }
+  try{ INV=await (await fetch('/api/investment')).json(); }catch(e){ INV={}; }
+  // llenar meses disponibles
+  const meses=[...new Set(ORDERS.filter(o=>o.fecha).map(o=>o.fecha.slice(0,7)))].sort().reverse();
+  $('#mes-sel').innerHTML='<option value="">Elegir mes…</option>'+meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+  renderCurrent();
+}
+async function guardarInv(){
+  const fecha=$('#inv-fecha').value, monto=$('#inv-monto').value;
+  const msg=$('#inv-msg'); if(!fecha){ msg.className='msg err'; msg.textContent='Poné una fecha.'; return; }
+  msg.className='msg'; msg.textContent='Guardando…';
+  try{ INV=await (await fetch('/api/investment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha,monto})})).json();
+    msg.className='msg ok'; msg.textContent='✓ Guardado'; $('#inv-monto').value=''; renderInvList(); toast('✓ Inversión guardada'); }
+  catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
+}
+async function borrarInv(d){
+  if(!confirm('¿Borrar la inversión de '+d+'?')) return;
+  INV=await (await fetch('/api/investment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:d,monto:0})})).json();
+  renderInvList();
+}
+function toBase64(buf){ const bytes=new Uint8Array(buf); let bin=''; const chunk=8192; for(let i=0;i<bytes.length;i+=chunk){ bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk)); } return btoa(bin); }
+async function subir(ev){
+  const file=ev.target.files[0]; if(!file) return;
+  const msg=$('#up-msg'); msg.className='msg'; msg.textContent='Procesando "'+file.name+'"…';
+  try{
+    const b64=toBase64(await file.arrayBuffer());
+    const r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:b64})});
+    const res=await r.json();
+    if(!r.ok) throw new Error(res.detail||res.error||'error');
+    await load();
+    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.added} nuevos, ${res.updated} actualizados (${res.total} en el archivo, sin pruebas).`;
+    toast('✓ Reporte cargado');
+  }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
+  ev.target.value='';
+}
+
+$('#inv-fecha').value=today();
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "metricas-tienda",
+  "version": "1.0.0",
+  "description": "Dashboard de métricas de tienda (pedidos Dropi + rentabilidad).",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "xlsx": "^0.18.5" }
+}
