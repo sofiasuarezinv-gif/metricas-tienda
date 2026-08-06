@@ -10,13 +10,12 @@
   :root{
     --bg0:#08080d;--bg1:#101019;--bg2:#181824;--bg3:#212030;--line:#2a2840;
     --ink:#ece9f5;--sub:#948fb0;--dim:rgba(255,255,255,.06);
-    --purple:#a78bfa;--purple2:#7c5cff;--green:#34d399;--red:#f87171;--amber:#f59e0b;--cyan:#38bdf8;--pink:#f472b6;
+    --purple:#a78bfa;--purple2:#7c5cff;--green:#34d399;--red:#f87171;--amber:#f59e0b;--orange:#fb923c;--cyan:#38bdf8;--pink:#f472b6;
     --shadow:0 18px 40px -22px rgba(0,0,0,.8);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg0);color:var(--ink);font-family:"Inter",system-ui,sans-serif;font-size:14.5px;-webkit-font-smoothing:antialiased}
   .app{display:flex;min-height:100vh}
-  /* Sidebar */
   .side{width:230px;flex-shrink:0;background:linear-gradient(180deg,var(--bg1),var(--bg0));border-right:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;padding:0 6px}
   .brand .lg{width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,var(--purple2),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:19px}
@@ -30,10 +29,11 @@
   .main{flex:1;padding:26px 30px;min-width:0}
   @media(max-width:820px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:6px}.nav{flex-direction:row;flex-wrap:wrap}.brand{width:100%}}
 
-  h2.title{font-size:22px;font-weight:800;margin:0 0 4px}
+  h2.title{font-size:22px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:10px}
   .muted{color:var(--sub);font-size:13px;margin:0 0 20px}
+  .chartbtn{font-size:17px;cursor:pointer;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:2px 9px;line-height:1.4}
+  .chartbtn:hover{border-color:var(--purple)}
 
-  /* Filtros fecha */
   .filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:22px}
   .filters button{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:8px 13px;border-radius:9px;font:600 12.5px "Inter";cursor:pointer}
   .filters button:hover{color:var(--ink)} .filters button.active{background:var(--purple2);border-color:var(--purple2);color:#fff}
@@ -41,35 +41,67 @@
 
   .sec-h{font-size:13px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.06em;margin:26px 0 12px}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
-  .stat{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .stat{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative}
   .stat .k{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:flex;gap:6px;align-items:center}
   .stat .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
   .stat .s{font-size:11.5px;color:var(--sub);margin-top:6px}
   .stat.pur{border-color:var(--purple2);background:linear-gradient(150deg,rgba(124,92,255,.12),rgba(16,16,25,.5))}
   .stat.pur .v{color:var(--purple)}
-  .stat.grn .v{color:var(--green)} .stat.red .v{color:var(--red)} .stat.cyan .v{color:var(--cyan)} .stat.amb .v{color:var(--amber)}
+  .stat.grn .v{color:var(--green)} .stat.red .v{color:var(--red)} .stat.cyan .v{color:var(--cyan)} .stat.amb .v{color:var(--amber)} .stat.org .v{color:var(--orange)}
+  .badge{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:800;color:var(--amber);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);padding:2px 7px;border-radius:20px}
 
   table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
+  th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
   th:first-child,td:first-child{text-align:left}
   th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--sub);background:var(--bg2)}
+  th.sortable{cursor:pointer;user-select:none} th.sortable:hover{color:var(--ink)}
+  th .arr{opacity:.5;font-size:9px;margin-left:2px}
   tr:last-child td{border-bottom:0}
   td.num{font-variant-numeric:tabular-nums;font-weight:600}
+  tr.totals td{background:var(--bg2);font-weight:800;border-top:2px solid var(--line)}
+  tr.sel td{background:rgba(124,92,255,.08)}
   .tablewrap{overflow-x:auto}
+  .cb{width:15px;height:15px;accent-color:var(--purple2);cursor:pointer;vertical-align:middle}
+  .sharebar{display:inline-block;height:7px;border-radius:4px;background:var(--purple2);vertical-align:middle;margin-left:7px;min-width:2px}
 
-  .panel{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:640px;box-shadow:var(--shadow)}
+  details.acc{background:var(--bg1);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;box-shadow:var(--shadow)}
+  details.acc>summary{cursor:pointer;padding:15px 18px;font-weight:700;font-size:14.5px;list-style:none;display:flex;align-items:center;gap:9px}
+  details.acc>summary::-webkit-details-marker{display:none}
+  details.acc>summary::before{content:"▸";color:var(--purple);font-size:12px;transition:.15s}
+  details.acc[open]>summary::before{transform:rotate(90deg)}
+  details.acc .acc-body{padding:0 18px 18px}
+
+  .panel{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:660px;box-shadow:var(--shadow)}
   .field{margin-bottom:14px}
   .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
   .field input{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px 12px;font:500 14px "Inter";outline:none}
   .field input:focus{border-color:var(--purple)}
+  .inline{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
   .btn{background:var(--purple2);border:none;color:#fff;padding:11px 20px;border-radius:11px;font:700 14px "Inter";cursor:pointer}
-  .btn:hover{filter:brightness(1.08)} .btn.ghost{background:var(--bg2);border:1px solid var(--line);color:var(--ink)}
+  .btn:hover{filter:brightness(1.08)} .btn.ghost{background:var(--bg2);border:1px solid var(--line);color:var(--ink)} .btn.sm{padding:7px 12px;font-size:12.5px}
   .drop{border:2px dashed var(--line);border-radius:14px;padding:32px;text-align:center;color:var(--sub);cursor:pointer;background:var(--bg2)}
   .drop:hover{border-color:var(--purple)}
   .msg{font-size:13px;font-weight:600;margin-top:10px} .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
   .empty{text-align:center;color:var(--sub);padding:50px 20px}
+  .hint{font-size:12px;color:var(--amber);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:10px 13px;margin-bottom:16px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--purple);color:var(--ink);padding:12px 20px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;z-index:80}
   .toast.show{opacity:1}
+
+  .toggle{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .toggle button{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:7px 14px;border-radius:9px;font:600 12.5px "Inter";cursor:pointer}
+  .toggle button.active{background:var(--purple2);border-color:var(--purple2);color:#fff}
+
+  /* charts */
+  .chartcard{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .charttitle{font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+  .chartgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.chartgrid{grid-template-columns:1fr}}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(4,4,10,.72);display:none;align-items:flex-start;justify-content:center;padding:36px 18px;z-index:90;overflow-y:auto}
+  .modal.show{display:flex}
+  .modal-card{background:var(--bg1);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:900px;width:100%;box-shadow:var(--shadow);position:relative}
+  .modal-x{position:absolute;top:14px;right:14px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:15px}
 </style>
 </head>
 <body>
@@ -80,6 +112,8 @@
       <a class="active" id="nav-dashboard" onclick="go('dashboard')">📊 Dashboard</a>
       <a id="nav-diario" onclick="go('diario')">📅 Diario</a>
       <a id="nav-transp" onclick="go('transp')">🚚 Transportadoras</a>
+      <a id="nav-oficina" onclick="go('oficina')">🏢 Pedidos a oficina</a>
+      <a id="nav-ciudades" onclick="go('ciudades')">🌎 Ciudades</a>
       <div class="sep"></div>
       <a id="nav-inversion" onclick="go('inversion')">💰 Inversión</a>
       <a id="nav-subir" onclick="go('subir')">⬆️ Subir reporte</a>
@@ -87,13 +121,15 @@
   </aside>
 
   <main class="main">
-    <!-- filtros compartidos -->
     <div id="rangebar">
       <div class="filters" id="filters">
         <button data-r="total" class="active" onclick="setRange('total')">Total</button>
         <button data-r="hoy" onclick="setRange('hoy')">Hoy</button>
         <button data-r="ayer" onclick="setRange('ayer')">Ayer</button>
+        <button data-r="4d" onclick="setRange('4d')">4 días</button>
         <button data-r="7d" onclick="setRange('7d')">7 días</button>
+        <button data-r="14d" onclick="setRange('14d')">14 días</button>
+        <button data-r="30d" onclick="setRange('30d')">30 días</button>
         <button data-r="mes" onclick="setRange('mes')">Este mes</button>
         <button data-r="mesant" onclick="setRange('mesant')">Mes anterior</button>
         <select id="mes-sel" onchange="setRange('pick')"><option value="">Elegir mes…</option></select>
@@ -103,6 +139,8 @@
     <div id="view-dashboard"></div>
     <div id="view-diario" style="display:none"></div>
     <div id="view-transp" style="display:none"></div>
+    <div id="view-oficina" style="display:none"></div>
+    <div id="view-ciudades" style="display:none"></div>
 
     <div id="view-inversion" style="display:none">
       <h2 class="title">💰 Inversión (Meta)</h2>
@@ -130,23 +168,29 @@
   </main>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"></div>
 
 <script>
 const $=s=>document.querySelector(s);
 const usd=n=>'$'+Math.round(n||0).toLocaleString('es-CO');
 const pct=n=>(isFinite(n)?(n*100).toFixed(1):'0')+'%';
 const dec=(n,d=2)=>(isFinite(n)?n:0).toLocaleString('es-CO',{maximumFractionDigits:d});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200);}
 
-let ORDERS=[], INV={}, RANGE={type:'total'};
+let ORDERS=[], INV={}, CFG={}, RANGE={type:'total'};
 const iso=d=>d.toISOString().slice(0,10);
 function today(){return iso(new Date());}
 function rangeDates(){
   const now=new Date(); const t=iso(now);
+  const back=(n,label)=>{const f=new Date(now);f.setDate(f.getDate()-(n-1));return{from:iso(f),to:t,label};};
   if(RANGE.type==='total') return {from:'0000-00-00',to:'9999-99-99',label:'Total'};
   if(RANGE.type==='hoy') return {from:t,to:t,label:'Hoy'};
   if(RANGE.type==='ayer'){const y=new Date(now);y.setDate(y.getDate()-1);return {from:iso(y),to:iso(y),label:'Ayer'};}
-  if(RANGE.type==='7d'){const f=new Date(now);f.setDate(f.getDate()-6);return {from:iso(f),to:t,label:'Últimos 7 días'};}
+  if(RANGE.type==='4d') return back(4,'Últimos 4 días');
+  if(RANGE.type==='7d') return back(7,'Últimos 7 días');
+  if(RANGE.type==='14d') return back(14,'Últimos 14 días');
+  if(RANGE.type==='30d') return back(30,'Últimos 30 días');
   if(RANGE.type==='mes'){const f=iso(new Date(now.getFullYear(),now.getMonth(),1));return {from:f,to:t,label:'Este mes'};}
   if(RANGE.type==='mesant'){const f=new Date(now.getFullYear(),now.getMonth()-1,1);const l=new Date(now.getFullYear(),now.getMonth(),0);return {from:iso(f),to:iso(l),label:'Mes anterior'};}
   if(RANGE.type==='pick'&&RANGE.mes){const [y,m]=RANGE.mes.split('-').map(Number);const l=new Date(y,m,0);return {from:RANGE.mes+'-01',to:iso(l),label:RANGE.mes};}
@@ -158,36 +202,45 @@ function setRange(type){
   document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.r===RANGE.type));
   renderCurrent();
 }
-function inRange(fecha){const r=rangeDates();return fecha>=r.from&&fecha<=r.to;}
+function rangeOrders(){const r=rangeDates();return ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);}
 
-// ─── Métricas ───
-function metrics(){
-  const r=rangeDates();
-  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
-  const canc=os.filter(o=>o.estado==='CANCELADO');
-  const ent=os.filter(o=>o.estado==='ENTREGADO');
-  const dev=os.filter(o=>o.estado==='DEVOLUCION');
-  const gen=os.length, despachados=gen-canc.length;
-  const sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
-  const facturacion=sum(os,'venta');
-  const factEnt=sum(ent,'venta');
-  const ganancia=sum(ent,'ganancia');
-  const flete=sum(os,'flete');
-  const proveedor=sum(ent,'proveedor');
-  const costoDev=dev.reduce((s,o)=>s+(o.flete||0)+(o.dev_flete||0),0);
-  // inversión de los días del rango
-  let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
-  return {os,gen,canc:canc.length,despachados,ent:ent.length,dev:dev.length,
-    facturacion,factEnt,ganancia,flete,proveedor,costoDev,inv,
-    cpa1:gen?inv/gen:0, cpa2:despachados?inv/despachados:0, cpa3:ent.length?inv/ent.length:0,
-    roas1:inv?facturacion/inv:0, roas2:inv?factEnt/inv:0, gananciaNeta:ganancia-inv,
-    pDesp:gen?despachados/gen:0, pCanc:gen?canc.length/gen:0, pEnt:despachados?ent.length/despachados:0, pDev:despachados?dev.length/despachados:0,
-    label:r.label};
+// ─── Helpers de métricas ───
+function dDays(o){ if(o.estado!=='ENTREGADO'||!o.fecha||!o.ult_mov) return null; const d=(new Date(o.ult_mov)-new Date(o.fecha))/86400000; return (isFinite(d)&&d>=0)?d:null; }
+function avgDel(list){ const ds=list.map(dDays).filter(x=>x!=null); return ds.length? ds.reduce((s,x)=>s+x,0)/ds.length : null; }
+const fdays=n=> n==null?'—':dec(n,1)+' d';
+function funnel(list){
+  const gen=list.length;
+  const canc=list.filter(o=>o.estado==='CANCELADO').length;
+  const ent=list.filter(o=>o.estado==='ENTREGADO').length;
+  const dev=list.filter(o=>o.estado==='DEVOLUCION').length;
+  const desp=gen-canc;
+  return {gen,canc,ent,dev,desp, pCanc:gen?canc/gen:0, pDesp:gen?desp/gen:0, pEnt:desp?ent/desp:0, pDev:desp?dev/desp:0, avg:avgDel(list)};
 }
-const tile=(k,v,cls,s)=>`<div class="stat ${cls||''}"><div class="k">${k}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+function entColor(p){ if(!isFinite(p))return 'var(--sub)'; if(p>=0.85)return 'var(--green)'; if(p>=0.75)return 'var(--amber)'; if(p>=0.70)return 'var(--orange)'; return 'var(--red)'; }
+function groupBy(list,key){ const g={}; list.forEach(o=>{ const k=(key(o)||'—'); (g[k]=g[k]||[]).push(o); }); return g; }
+const upper=s=>String(s||'').trim().toUpperCase()||'—';
 
+function metrics(){
+  const os=rangeOrders(); const r=rangeDates();
+  const f=funnel(os);
+  const sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
+  const ent=os.filter(o=>o.estado==='ENTREGADO'), dev=os.filter(o=>o.estado==='DEVOLUCION');
+  const facturacion=sum(os,'venta'), factEnt=sum(ent,'venta'), ganancia=sum(ent,'ganancia');
+  const flete=sum(os,'flete'), proveedor=sum(ent,'proveedor');
+  const costoDev=dev.reduce((s,o)=>s+(o.flete||0)+(o.dev_flete||0),0);
+  let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
+  const gananciaNeta=ganancia-inv;
+  return {os,...f, facturacion,factEnt,ganancia,flete,proveedor,costoDev,inv,gananciaNeta,
+    cpa1:f.gen?inv/f.gen:0, cpa2:f.desp?inv/f.desp:0, cpa3:f.ent?inv/f.ent:0,
+    roas1:inv?facturacion/inv:0, roas2:inv?factEnt/inv:0, roi:inv?gananciaNeta/inv:0, label:r.label};
+}
+const tile=(k,v,cls,s,badge)=>`<div class="stat ${cls||''}">${badge?`<div class="badge">${badge}</div>`:''}<div class="k">${k}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+
+// ─── Dashboard ───
 function renderDashboard(){
   const m=metrics();
+  const rates=[['Entrega',m.pEnt],['Devolución',m.pDev],['Cancelación',m.pCanc],['Despacho',m.pDesp]];
+  const maxRate=Math.max(...rates.map(r=>r[1]));
   $('#view-dashboard').innerHTML=`
     <h2 class="title">📊 Dashboard</h2>
     <p class="muted">${m.label} · ${m.gen} pedidos</p>
@@ -203,9 +256,13 @@ function renderDashboard(){
     <div class="cards">
       ${tile('Generados',m.gen,'')}
       ${tile('Cancelados',m.canc,'red',pct(m.pCanc)+' de generados')}
-      ${tile('Despachados',m.despachados,'cyan',pct(m.pDesp)+' de generados')}
+      ${tile('Despachados',m.desp,'cyan',pct(m.pDesp)+' de generados')}
       ${tile('Entregados',m.ent,'grn',pct(m.pEnt)+' de despachados')}
       ${tile('Devoluciones',m.dev,'red',pct(m.pDev)+' de despachados')}
+    </div>
+    <div class="sec-h">Efectividad (% más altos)</div>
+    <div class="cards">
+      ${rates.map(([n,p])=>tile('% '+n,pct(p),'',n==='Entrega'?'entregados ÷ despachados':(n==='Despacho'?'despachados ÷ generados':(n==='Cancelación'?'de generados':'de despachados')),p===maxRate?'▲ mayor':'')).join('')}
     </div>
     <div class="sec-h">CPA por etapa</div>
     <div class="cards">
@@ -222,49 +279,244 @@ function renderDashboard(){
       ${tile('Ganancia entregados',usd(m.ganancia),'grn')}
       ${tile('ROAS entregados',dec(m.roas2)+'×','amb','fact. entregada ÷ inv')}
       ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
+      ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
     </div>`;
 }
 
-function renderDiario(){
-  const r=rangeDates();
-  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
+// ─── Diario ───
+function dailySeries(){
+  const os=rangeOrders(); const r=rangeDates();
   const days={};
   os.forEach(o=>{ (days[o.fecha]=days[o.fecha]||[]).push(o); });
   Object.keys(INV).forEach(d=>{ if(d>=r.from&&d<=r.to&&!days[d]) days[d]=[]; });
-  const fechas=Object.keys(days).sort().reverse();
-  let html=`<h2 class="title">📅 Diario</h2><p class="muted">${r.label} · un renglón por día</p>`;
-  if(!fechas.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-diario').innerHTML=html; return; }
-  html+=`<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Inversión</th><th>Ventas</th><th>Facturación</th><th>Entregados</th><th>CPA</th><th>ROAS</th></tr></thead><tbody>`;
-  fechas.forEach(d=>{
-    const list=days[d]; const gen=list.length;
+  return Object.keys(days).sort().map(d=>{
+    const list=days[d]; const f=funnel(list);
     const fac=list.reduce((s,o)=>s+(o.venta||0),0);
-    const ent=list.filter(o=>o.estado==='ENTREGADO').length;
     const inv=+INV[d]||0;
-    html+=`<tr><td>${d}</td><td class="num">${usd(inv)}</td><td class="num">${gen}</td><td class="num">${usd(fac)}</td><td class="num">${ent}</td><td class="num">${gen&&inv?usd(inv/gen):'—'}</td><td class="num">${inv?dec(fac/inv)+'×':'—'}</td></tr>`;
+    return {d,...f, fac, inv, cpa:f.gen&&inv?inv/f.gen:0, roas:inv?fac/inv:0};
   });
+}
+function renderDiario(){
+  const r=rangeDates();
+  const rows=dailySeries().slice().reverse();
+  const os=rangeOrders(); const f=funnel(os);
+  const ef=((CFG.efectividad!=null?CFG.efectividad:75))/100;
+  const sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
+  const ent=os.filter(o=>o.estado==='ENTREGADO');
+  const proveedor=sum(ent,'proveedor'), flete=sum(os,'flete'), ganancia=sum(ent,'ganancia');
+  let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
+  const gananciaUnit=f.ent? ganancia/f.ent : 0;
+  const entProy=Math.round(f.gen*ef);
+  const gananciaProy=gananciaUnit*entProy;
+  const netoProy=gananciaProy-inv;
+
+  let html=`<h2 class="title">📅 Diario <span class="chartbtn" title="Ver gráficas" onclick="openDiarioCharts()">📈</span></h2>
+    <p class="muted">${r.label} · un renglón por día</p>`;
+
+  // Proyección
+  html+=`<details class="acc" open><summary>🔮 Proyección</summary><div class="acc-body">
+    <div class="cards" style="margin-bottom:16px">
+      ${tile('Gasto proveedores',usd(proveedor),'red','entregados')}
+      ${tile('Gasto transportadora',usd(flete),'red','flete total')}
+      ${tile('Inversión',usd(inv),'pur')}
+      ${tile('Ganancia neta actual',usd(ganancia-inv),(ganancia-inv)>=0?'grn':'red','entregados − inversión')}
+    </div>
+    <div class="inline" style="margin-bottom:16px">
+      <div class="field" style="margin:0"><label>Efectividad de entrega (%)</label>
+        <input type="number" id="ef-input" min="0" max="100" step="0.5" value="${CFG.efectividad!=null?CFG.efectividad:75}" style="max-width:140px"></div>
+      <button class="btn sm" onclick="guardarEf()">Guardar</button>
+      <span class="msg" id="ef-msg"></span>
+    </div>
+    <div class="cards">
+      ${tile('Entregados proyectados',entProy,'cyan',pct(ef)+' de '+f.gen+' generados')}
+      ${tile('Ganancia proyectada',usd(gananciaProy),'grn','ganancia/entregado × proyectados')}
+      ${tile('Neto proyectado',usd(netoProy),netoProy>=0?'grn':'red','descontando inversión')}
+    </div>
+  </div></details>`;
+
+  // Embudo diario
+  html+=`<details class="acc"><summary>📦 Embudo del rango</summary><div class="acc-body"><div class="cards">
+      ${tile('Generados',f.gen,'')}
+      ${tile('Cancelados',f.canc,'red',pct(f.pCanc))}
+      ${tile('Despachados',f.desp,'cyan',pct(f.pDesp))}
+      ${tile('Entregados',f.ent,'grn',pct(f.pEnt))}
+      ${tile('Devoluciones',f.dev,'red',pct(f.pDev))}
+      ${tile('⏱️ T. entrega prom.',fdays(f.avg),'','generación → entrega')}
+  </div></div></details>`;
+
+  if(!rows.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-diario').innerHTML=html; return; }
+  html+=`<div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Inversión</th><th>Ventas</th><th>Facturación</th><th>Entregados</th><th>CPA</th><th>ROAS</th></tr></thead><tbody>`;
+  rows.forEach(r=>{ html+=`<tr><td>${r.d}</td><td class="num">${usd(r.inv)}</td><td class="num">${r.gen}</td><td class="num">${usd(r.fac)}</td><td class="num">${r.ent}</td><td class="num">${r.gen&&r.inv?usd(r.cpa):'—'}</td><td class="num">${r.inv?dec(r.roas)+'×':'—'}</td></tr>`; });
   html+=`</tbody></table></div>`;
   $('#view-diario').innerHTML=html;
 }
+async function guardarEf(){
+  const v=parseFloat($('#ef-input').value); const msg=$('#ef-msg');
+  if(!isFinite(v)||v<0||v>100){ msg.className='msg err'; msg.textContent='0 a 100'; return; }
+  msg.className='msg'; msg.textContent='Guardando…';
+  try{ CFG=await (await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({efectividad:v})})).json();
+    msg.className='msg ok'; msg.textContent='✓'; toast('✓ Efectividad guardada'); renderDiario(); }
+  catch(e){ msg.className='msg err'; msg.textContent='Error'; }
+}
 
-function renderTransp(){
-  const r=rangeDates();
-  const os=ORDERS.filter(o=>o.fecha&&o.fecha>=r.from&&o.fecha<=r.to);
-  const g={};
-  os.forEach(o=>{ (g[o.transportadora]=g[o.transportadora]||[]).push(o); });
-  const nombres=Object.keys(g).sort((a,b)=>g[b].length-g[a].length);
-  let html=`<h2 class="title">🚚 Transportadoras</h2><p class="muted">${r.label} · desempeño por transportadora</p>`;
-  if(!nombres.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-transp').innerHTML=html; return; }
-  html+=`<div class="tablewrap"><table><thead><tr><th>Transportadora</th><th>Generados</th><th>Despachados</th><th>Cancelados</th><th>Entregados</th><th>Devoluciones</th><th>% Entrega</th><th>% Devolución</th></tr></thead><tbody>`;
-  nombres.forEach(t=>{
-    const l=g[t]; const gen=l.length;
-    const canc=l.filter(o=>o.estado==='CANCELADO').length;
-    const ent=l.filter(o=>o.estado==='ENTREGADO').length;
-    const dev=l.filter(o=>o.estado==='DEVOLUCION').length;
-    const desp=gen-canc;
-    html+=`<tr><td>${t}</td><td class="num">${gen}</td><td class="num">${desp}</td><td class="num" style="color:var(--red)">${canc}</td><td class="num" style="color:var(--green)">${ent}</td><td class="num" style="color:var(--red)">${dev}</td><td class="num">${desp?pct(ent/desp):'—'}</td><td class="num">${desp?pct(dev/desp):'—'}</td></tr>`;
+// ─── Gráficas (SVG) ───
+function chartBars(title,points,color,fmt){
+  const n=points.length; const W=Math.max(320,n*30+50), H=170, pTop=14, pBot=26, pL=6, pR=6;
+  const max=Math.max(1,...points.map(p=>p.y));
+  const bw=(W-pL-pR)/n; let bars='',labels='';
+  const step=Math.max(1,Math.ceil(n/12));
+  points.forEach((p,i)=>{ const h=(H-pTop-pBot)*(p.y/max); const x=pL+i*bw+bw*0.16; const y=H-pBot-h; const w=bw*0.68;
+    bars+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2.5" fill="${color}"><title>${esc(p.x)}: ${fmt(p.y)}</title></rect>`;
+    if(i%step===0) labels+=`<text x="${(x+w/2).toFixed(1)}" y="${H-8}" font-size="8.5" fill="#948fb0" text-anchor="middle">${esc(p.x.slice(5))}</text>`;
   });
+  return `<div class="chartcard"><div class="charttitle">${title}</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${bars}${labels}</svg></div>`;
+}
+function openDiarioCharts(){
+  const s=dailySeries();
+  if(!s.length){ openModal('<h2 class="title">📈 Gráficas diarias</h2><div class="empty">Sin datos en este rango.</div>'); return; }
+  const pts=(k)=>s.map(r=>({x:r.d,y:r[k]}));
+  const html=`<h2 class="title">📈 Gráficas diarias</h2><p class="muted">${rangeDates().label}</p>
+    <div class="chartgrid">
+      ${chartBars('Inversión',pts('inv'),'var(--purple)',usd)}
+      ${chartBars('Ventas (generados)',pts('gen'),'var(--cyan)',v=>dec(v,0))}
+      ${chartBars('Despachados',pts('desp'),'#818cf8',v=>dec(v,0))}
+      ${chartBars('Entregados',pts('ent'),'var(--green)',v=>dec(v,0))}
+      ${chartBars('Devoluciones',pts('dev'),'var(--red)',v=>dec(v,0))}
+      ${chartBars('Facturación',pts('fac'),'var(--amber)',usd)}
+    </div>`;
+  openModal(html);
+}
+function openModal(html){ $('#modal').innerHTML=`<div class="modal-card"><button class="modal-x" onclick="closeModal()">✕</button>${html}</div>`; $('#modal').classList.add('show'); }
+function closeModal(){ $('#modal').classList.remove('show'); }
+
+// ─── Transportadoras ───
+let TR={sort:'gen',dir:-1,sel:new Set(),last:[]};
+function trRows(){
+  const g=groupBy(rangeOrders(),o=>o.transportadora||'—');
+  const totalGen=rangeOrders().length||1;
+  let rows=Object.entries(g).map(([name,l])=>{ const f=funnel(l); return {name,...f,share:l.length/totalGen}; });
+  const k=TR.sort;
+  rows.sort((a,b)=>{ let va=a[k],vb=b[k]; if(k==='name'){return TR.dir*String(va).localeCompare(String(vb));} return TR.dir*((va||0)-(vb||0)); });
+  return rows;
+}
+function trSort(k){ if(TR.sort===k) TR.dir*=-1; else {TR.sort=k;TR.dir=(k==='name')?1:-1;} renderTransp(); }
+function trToggle(i){ const n=TR.last[i]&&TR.last[i].name; if(n==null)return; if(TR.sel.has(n))TR.sel.delete(n); else TR.sel.add(n); renderTransp(); }
+function trAll(){ const rows=TR.last; if(TR.sel.size===rows.length)TR.sel.clear(); else rows.forEach(r=>TR.sel.add(r.name)); renderTransp(); }
+function trClear(){ TR.sel.clear(); renderTransp(); }
+function renderTransp(){
+  const r=rangeDates(); const rows=trRows(); TR.last=rows;
+  let html=`<h2 class="title">🚚 Transportadoras</h2><p class="muted">${r.label} · desempeño por transportadora · 🟢 ≥85% · 🟡 75–85% · 🟠 70–75% · 🔴 <70%</p>`;
+  if(!rows.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-transp').innerHTML=html; return; }
+
+  const maxShare=Math.max(...rows.map(r=>r.share));
+  const top=rows.slice().sort((a,b)=>b.gen-a.gen)[0];
+  // gráfica de peso
+  html+=`<div class="chartcard"><div class="charttitle">Peso de cada transportadora (% de pedidos generados)</div>`;
+  rows.slice().sort((a,b)=>b.share-a.share).forEach(r=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin:5px 0;font-size:12.5px">
+      <div style="width:150px;color:var(--sub)" title="${esc(r.name)}">${esc(r.name)}</div>
+      <div style="flex:1;background:var(--bg3);border-radius:5px;height:12px;overflow:hidden"><div style="height:100%;width:${(r.share*100).toFixed(1)}%;background:${r.name===top.name?'var(--purple2)':'var(--cyan)'}"></div></div>
+      <div style="width:52px;text-align:right;font-weight:700">${pct(r.share)}</div></div>`;
+  });
+  html+=`<div style="font-size:12px;color:var(--sub);margin-top:8px">🏆 La que más genera: <b style="color:var(--purple)">${esc(top.name)}</b> (${pct(top.share)} · ${top.gen} pedidos)</div></div>`;
+
+  const arr=k=>TR.sort===k?`<span class="arr">${TR.dir<0?'▼':'▲'}</span>`:'';
+  const H=(k,label)=>`<th class="sortable" onclick="trSort('${k}')">${label}${arr(k)}</th>`;
+  const allSel=TR.sel.size===rows.length&&rows.length>0;
+  html+=`<div style="display:flex;gap:8px;margin:6px 0 10px;flex-wrap:wrap">
+      <button class="btn ghost sm" onclick="trAll()">${allSel?'Deseleccionar todo':'Seleccionar todo'}</button>
+      ${TR.sel.size?`<button class="btn ghost sm" onclick="trClear()">Deseleccionar (${TR.sel.size})</button>`:''}</div>`;
+  html+=`<div class="tablewrap"><table><thead><tr>
+    <th style="text-align:center"><input type="checkbox" class="cb" ${allSel?'checked':''} onclick="trAll()"></th>
+    ${H('name','Transportadora')}${H('gen','Generados')}${H('share','Peso %')}${H('desp','Despach.')}${H('pDesp','% Desp')}${H('canc','Cancel.')}${H('pCanc','% Canc')}${H('ent','Entreg.')}${H('pEnt','% Entrega')}${H('dev','Devol.')}${H('pDev','% Dev')}${H('avg','T. entrega')}
+  </tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const sel=TR.sel.has(r.name);
+    html+=`<tr class="${sel?'sel':''}">
+      <td style="text-align:center"><input type="checkbox" class="cb" ${sel?'checked':''} onclick="trToggle(${i})"></td>
+      <td>${esc(r.name)}</td>
+      <td class="num">${r.gen}</td>
+      <td class="num">${pct(r.share)}<span class="sharebar" style="width:${(r.share/maxShare*54).toFixed(0)}px"></span></td>
+      <td class="num" style="color:var(--cyan)">${r.desp}</td>
+      <td class="num">${pct(r.pDesp)}</td>
+      <td class="num" style="color:var(--red)">${r.canc}</td>
+      <td class="num">${pct(r.pCanc)}</td>
+      <td class="num" style="color:var(--green)">${r.ent}</td>
+      <td class="num" style="color:${entColor(r.pEnt)};font-weight:800">${pct(r.pEnt)}</td>
+      <td class="num" style="color:var(--red)">${r.dev}</td>
+      <td class="num">${pct(r.pDev)}</td>
+      <td class="num">${fdays(r.avg)}</td></tr>`;
+  });
+  // fila total (seleccionadas o todas)
+  const base=TR.sel.size? rangeOrders().filter(o=>TR.sel.has(o.transportadora||'—')) : rangeOrders();
+  const tf=funnel(base); const tShare=base.length/(rangeOrders().length||1);
+  html+=`<tr class="totals"><td></td><td>${TR.sel.size?`Seleccionadas (${TR.sel.size})`:'TOTAL (todas)'}</td>
+    <td class="num">${tf.gen}</td><td class="num">${pct(tShare)}</td>
+    <td class="num">${tf.desp}</td><td class="num">${pct(tf.pDesp)}</td>
+    <td class="num">${tf.canc}</td><td class="num">${pct(tf.pCanc)}</td>
+    <td class="num">${tf.ent}</td><td class="num" style="color:${entColor(tf.pEnt)}">${pct(tf.pEnt)}</td>
+    <td class="num">${tf.dev}</td><td class="num">${pct(tf.pDev)}</td><td class="num">${fdays(tf.avg)}</td></tr>`;
   html+=`</tbody></table></div>`;
   $('#view-transp').innerHTML=html;
+}
+
+// ─── Tabla de embudo por grupo (ciudades / deptos) ───
+function funnelTable(g,firstLabel){
+  const rows=Object.entries(g).map(([name,l])=>({name,...funnel(l)})).sort((a,b)=>b.gen-a.gen);
+  let h=`<div class="tablewrap"><table><thead><tr><th>${firstLabel}</th><th>Gener.</th><th>Cancel.</th><th>% Canc</th><th>Despach.</th><th>% Desp</th><th>Entreg.</th><th>% Entrega</th><th>Devol.</th><th>% Dev</th><th>T. entrega</th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr><td title="${esc(r.name)}">${esc(r.name)}</td>
+    <td class="num">${r.gen}</td>
+    <td class="num" style="color:var(--red)">${r.canc}</td><td class="num">${pct(r.pCanc)}</td>
+    <td class="num" style="color:var(--cyan)">${r.desp}</td><td class="num">${pct(r.pDesp)}</td>
+    <td class="num" style="color:var(--green)">${r.ent}</td><td class="num" style="color:${entColor(r.pEnt)};font-weight:800">${pct(r.pEnt)}</td>
+    <td class="num" style="color:var(--red)">${r.dev}</td><td class="num">${pct(r.pDev)}</td>
+    <td class="num">${fdays(r.avg)}</td></tr>`; });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+function funnelCards(f){
+  return `<div class="cards">
+    ${tile('Generados',f.gen,'')}
+    ${tile('Cancelados',f.canc,'red',pct(f.pCanc)+' de generados')}
+    ${tile('Despachados',f.desp,'cyan',pct(f.pDesp)+' de generados')}
+    ${tile('Entregados',f.ent,'grn',pct(f.pEnt)+' de despachados')}
+    ${tile('Devoluciones',f.dev,'red',pct(f.pDev)+' de despachados')}
+    ${tile('⏱️ T. entrega prom.',fdays(f.avg),'','generación → entrega')}
+  </div>`;
+}
+function cityViews(list){
+  return `<div class="sec-h">Por departamento</div>${funnelTable(groupBy(list,o=>upper(o.depto)),'Departamento')}
+    <div class="sec-h">Por municipio (depto — ciudad)</div>${funnelTable(groupBy(list,o=>upper(o.depto)+' — '+upper(o.ciudad)),'Municipio')}`;
+}
+function hasEnvio(){ return ORDERS.some(o=>o.tipo_envio); }
+
+// ─── Oficina (SIN RECAUDO) ───
+function renderOficina(){
+  const r=rangeDates(); const list=rangeOrders().filter(o=>o.tipo_envio==='SIN RECAUDO');
+  let html=`<h2 class="title">🏢 Pedidos a oficina</h2><p class="muted">${r.label} · envíos SIN RECAUDO (prepagado / recoge en oficina)</p>`;
+  if(!hasEnvio()) html+=`<div class="hint">⚠️ Tus pedidos guardados todavía no tienen el "tipo de envío". Volvé a subir tus reportes de Dropi (en <b>Subir reporte</b>) para separar oficina vs contraentrega — se actualizan por ID, no se duplican.</div>`;
+  if(!list.length){ html+=`<div class="empty">Sin pedidos a oficina en este rango.</div>`; $('#view-oficina').innerHTML=html; return; }
+  html+=funnelCards(funnel(list))+cityViews(list);
+  $('#view-oficina').innerHTML=html;
+}
+
+// ─── Ciudades (todos / oficina / contraentrega) ───
+let CIU='todos';
+function setCiu(v){ CIU=v; renderCiudades(); }
+function renderCiudades(){
+  const r=rangeDates(); let list=rangeOrders();
+  if(CIU==='oficina') list=list.filter(o=>o.tipo_envio==='SIN RECAUDO');
+  else if(CIU==='contra') list=list.filter(o=>o.tipo_envio==='CON RECAUDO');
+  let html=`<h2 class="title">🌎 Ciudades</h2><p class="muted">${r.label} · a dónde se mandó, por departamento y municipio</p>
+    <div class="toggle">
+      <button class="${CIU==='todos'?'active':''}" onclick="setCiu('todos')">Todos</button>
+      <button class="${CIU==='oficina'?'active':''}" onclick="setCiu('oficina')">Oficina (sin recaudo)</button>
+      <button class="${CIU==='contra'?'active':''}" onclick="setCiu('contra')">Contraentrega (con recaudo)</button>
+    </div>`;
+  if(CIU!=='todos'&&!hasEnvio()) html+=`<div class="hint">⚠️ Volvé a subir tus reportes de Dropi para usar el filtro oficina/contraentrega (se actualizan por ID).</div>`;
+  if(!list.length){ html+=`<div class="empty">Sin datos en este rango.</div>`; $('#view-ciudades').innerHTML=html; return; }
+  html+=funnelCards(funnel(list))+cityViews(list);
+  $('#view-ciudades').innerHTML=html;
 }
 
 function renderInvList(){
@@ -276,19 +528,19 @@ function renderInvList(){
 
 // ─── Navegación ───
 let CURRENT='dashboard';
+const VIEWS=['dashboard','diario','transp','oficina','ciudades','inversion','subir'];
 function go(v){
   CURRENT=v;
-  ['dashboard','diario','transp','inversion','subir'].forEach(k=>{
-    $('#view-'+k).style.display = k===v?'':'none';
-    $('#nav-'+k).classList.toggle('active',k===v);
-  });
-  $('#rangebar').style.display = (v==='dashboard'||v==='diario'||v==='transp')?'':'none';
+  VIEWS.forEach(k=>{ $('#view-'+k).style.display = k===v?'':'none'; $('#nav-'+k).classList.toggle('active',k===v); });
+  $('#rangebar').style.display = ['dashboard','diario','transp','oficina','ciudades'].includes(v)?'':'none';
   renderCurrent();
 }
 function renderCurrent(){
   if(CURRENT==='dashboard') renderDashboard();
   else if(CURRENT==='diario') renderDiario();
   else if(CURRENT==='transp') renderTransp();
+  else if(CURRENT==='oficina') renderOficina();
+  else if(CURRENT==='ciudades') renderCiudades();
   else if(CURRENT==='inversion') renderInvList();
 }
 
@@ -296,7 +548,7 @@ function renderCurrent(){
 async function load(){
   try{ ORDERS=await (await fetch('/api/orders')).json(); }catch(e){ ORDERS=[]; }
   try{ INV=await (await fetch('/api/investment')).json(); }catch(e){ INV={}; }
-  // llenar meses disponibles
+  try{ CFG=await (await fetch('/api/config')).json(); }catch(e){ CFG={}; }
   const meses=[...new Set(ORDERS.filter(o=>o.fecha).map(o=>o.fecha.slice(0,7)))].sort().reverse();
   $('#mes-sel').innerHTML='<option value="">Elegir mes…</option>'+meses.map(m=>`<option value="${m}">${m}</option>`).join('');
   renderCurrent();
@@ -330,6 +582,7 @@ async function subir(ev){
   ev.target.value='';
 }
 
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 $('#inv-fecha').value=today();
 load();
 </script>

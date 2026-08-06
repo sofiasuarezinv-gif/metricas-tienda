@@ -54,6 +54,7 @@ async function getAllOrders() {
   return all;
 }
 async function getInvestment() { const { obj } = await readJson(`${GH.base}/investment.json`); return obj || {}; }
+async function getConfig() { const { obj } = await readJson(`${GH.base}/config.json`); return obj || {}; }
 
 // ─────────── Parseo del Excel de Dropi ───────────
 const norm = (s) => (s == null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
@@ -72,6 +73,7 @@ function parseDropi(buffer) {
     transp: col('TRANSPORTADORA'), venta: col('VALOR DE COMPRA EN PRODUCTOS'), ganancia: col('GANANCIA'),
     flete: col('PRECIO FLETE'), devflete: col('COSTO DEVOLUCION FLETE'), proveedor: col('TOTAL EN PRECIOS DE PROVEEDOR'),
     ultmov: col('FECHA DE ULTIMO MOVIMIENTO'), depto: col('DEPARTAMENTO DESTINO'), ciudad: col('CIUDAD DESTINO'),
+    tipoenvio: col('TIPO DE ENVIO'),
   };
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -85,6 +87,7 @@ function parseDropi(buffer) {
       venta: numv(r[c.venta]), ganancia: numv(r[c.ganancia]), flete: numv(r[c.flete]),
       dev_flete: numv(r[c.devflete]), proveedor: numv(r[c.proveedor]), ult_mov: parseDate(r[c.ultmov]),
       depto: String(r[c.depto] || ''), ciudad: String(r[c.ciudad] || ''),
+      tipo_envio: String(r[c.tipoenvio] || '').trim().toUpperCase(),
     });
   }
   return out;
@@ -129,6 +132,14 @@ const server = http.createServer(async (req, res) => {
       if (body.fecha) { if (numv(body.monto) === 0) delete inv[body.fecha]; else inv[body.fecha] = numv(body.monto); }
       await writeJson(`${GH.base}/investment.json`, inv, sha, `investment ${body.fecha}`);
       return sendJson(res, 200, inv);
+    }
+    if (url === '/api/config' && req.method === 'GET') return sendJson(res, 200, await getConfig());
+    if (url === '/api/config' && req.method === 'POST') {
+      const body = await readBody(req); // objeto con claves a fusionar, p.ej. { efectividad: 75 }
+      const { obj, sha } = await readJson(`${GH.base}/config.json`);
+      const cfg = Object.assign(obj || {}, body || {});
+      await writeJson(`${GH.base}/config.json`, cfg, sha, 'config');
+      return sendJson(res, 200, cfg);
     }
     let file = url === '/' ? '/index.html' : url;
     const fp = path.join(__dirname, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
