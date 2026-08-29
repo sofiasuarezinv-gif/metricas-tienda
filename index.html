@@ -309,6 +309,7 @@ function renderDashboard(){
     <div class="cards">
       ${tile('💰 Inversión',usd(m.inv),'pur')}
       ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
+      ${tile('📝 Preliminares',m.prelim,'','checkouts sin terminar (Shopify)')}
       ${tile('🚀 ROAS',dec(m.roas1)+'×','amb','facturación ÷ inversión')}
       ${ganCard}
       ${roiPromCard}
