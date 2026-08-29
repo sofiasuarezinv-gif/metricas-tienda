@@ -58,6 +58,15 @@
   .metanote{font-size:10.5px;font-weight:600;color:var(--sub);margin-top:8px;display:flex;align-items:center;gap:3px;flex-wrap:wrap}
   .metainp{width:52px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:2px 5px;font:600 11px "Inter";text-align:right;outline:none}
   .metainp:focus{border-color:var(--purple)}
+  .rentgroups{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+  @media(max-width:820px){.rentgroups{grid-template-columns:1fr}}
+  .rentgroup{border-radius:16px;padding:14px 14px 16px;border:1px solid var(--line)}
+  .rentgroup .cards{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
+  .rentgroup-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:2px 2px 12px}
+  .rentgroup.blue{background:rgba(56,189,248,.06);border-color:rgba(56,189,248,.35)}
+  .rentgroup.blue .rentgroup-h{color:var(--cyan)}
+  .rentgroup.green{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.35)}
+  .rentgroup.green .rentgroup-h{color:var(--green)}
 
   table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
@@ -367,16 +376,22 @@ function renderDashboard(){
       ${recolectadoCard}
       ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
     </div>
-    <div class="sec-h" style="color:var(--cyan)">Recolectado Dropi</div>
-    <div class="cards">
-      ${roas2Card}
-      ${recPctCard}
-    </div>
-    <div class="sec-h" style="color:var(--green)">Ganancia neta</div>
-    <div class="cards">
-      ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
-      ${tile('% Ganancia neta (entregada)',pct(m.factEnt?m.gananciaNeta/m.factEnt:0),m.gananciaNeta>=0?'grn':'red','ganancia neta ÷ fact. entregada')}
-      ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
+    <div class="rentgroups">
+      <div class="rentgroup blue">
+        <div class="rentgroup-h">Recolectado Dropi</div>
+        <div class="cards">
+          ${roas2Card}
+          ${recPctCard}
+        </div>
+      </div>
+      <div class="rentgroup green">
+        <div class="rentgroup-h">Ganancia neta</div>
+        <div class="cards">
+          ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
+          ${tile('% Ganancia neta (entregada)',pct(m.factEnt?m.gananciaNeta/m.factEnt:0),m.gananciaNeta>=0?'grn':'red','ganancia neta ÷ fact. entregada')}
+          ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
+        </div>
+      </div>
     </div>
     <div class="sec-h">Costos</div>
     <div class="cards">
