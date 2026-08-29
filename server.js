@@ -56,6 +56,8 @@ async function getAllOrders() {
 async function getInvestment() { const { obj } = await readJson(`${GH.base}/investment.json`); return obj || {}; }
 async function getConfig() { const { obj } = await readJson(`${GH.base}/config.json`); return obj || {}; }
 async function getDaily() { const { obj } = await readJson(`${GH.base}/daily.json`); return obj || {}; }
+async function getMeta() { const { obj } = await readJson(`${GH.base}/meta.json`); return obj || {}; }
+async function getShopify() { const { obj } = await readJson(`${GH.base}/shopify.json`); return obj || {}; }
 
 // ─────────── Parseo del Excel de Dropi ───────────
 const norm = (s) => (s == null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
@@ -135,17 +137,20 @@ function parseMeta(buffer) {
 }
 async function importMeta(buffer) {
   const parsed = parseMeta(buffer);
-  const byDay = {};
-  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas_meta: 0, facturacion: 0 }; b.inversion += p.inversion; b.ventas_meta += p.ventas_meta; b.facturacion += p.facturacion; });
-  const invR = await readJson(`${GH.base}/investment.json`); const inv = invR.obj || {};
-  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
-  Object.entries(byDay).forEach(([d, v]) => {
-    inv[d] = Math.round(v.inversion);
-    const cur = daily[d] || {}; cur.ventas_meta = v.ventas_meta; cur.facturacion_meta = Math.round(v.facturacion); daily[d] = cur;
-  });
-  await writeJson(`${GH.base}/investment.json`, inv, invR.sha, 'meta: inversión');
-  await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'meta: ventas');
+  const byDay = {}; // { fecha: {inversion, ventas, facturacion} }
+  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas: 0, facturacion: 0 }; b.inversion += p.inversion; b.ventas += p.ventas_meta; b.facturacion += p.facturacion; });
+  Object.values(byDay).forEach(v => { v.inversion = Math.round(v.inversion); v.facturacion = Math.round(v.facturacion); });
+  // REEMPLAZA el archivo entero (re-subir no acumula; se puede borrar limpio)
+  const cur = await readJson(`${GH.base}/meta.json`);
+  await writeJson(`${GH.base}/meta.json`, byDay, cur.sha, 'meta: reporte');
+  await cleanLegacyMeta();
   return { dias: Object.keys(byDay).length, total: parsed.length };
+}
+// Limpia datos viejos de Meta que quedaron en daily.json/investment.json (subidas anteriores rotas)
+async function cleanLegacyMeta() {
+  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
+  if (daily) { let ch = false; Object.keys(daily).forEach(d => { if (daily[d].ventas_meta !== undefined || daily[d].facturacion_meta !== undefined) { delete daily[d].ventas_meta; delete daily[d].facturacion_meta; ch = true; if (Object.keys(daily[d]).length === 0) delete daily[d]; } }); if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar meta legado'); }
+  const iR = await readJson(`${GH.base}/investment.json`); if (iR.obj && Object.keys(iR.obj).length) await writeJson(`${GH.base}/investment.json`, {}, iR.sha, 'limpiar inversión legado');
 }
 
 // ─────────── Parseo del reporte de Shopify (pedidos por día) ───────────
@@ -173,11 +178,19 @@ function parseShopify(buffer) {
   return byDay;
 }
 async function importShopify(buffer) {
-  const byDay = parseShopify(buffer);
-  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
-  Object.entries(byDay).forEach(([d, v]) => { const cur = daily[d] || {}; cur.ventas_shopify = v.count; cur.facturacion_shopify = Math.round(v.total); daily[d] = cur; });
-  await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'shopify: ventas');
+  const parsed = parseShopify(buffer);
+  const byDay = {}; // { fecha: {ventas, facturacion} }
+  Object.entries(parsed).forEach(([d, v]) => { byDay[d] = { ventas: v.count, facturacion: Math.round(v.total) }; });
+  const cur = await readJson(`${GH.base}/shopify.json`);
+  await writeJson(`${GH.base}/shopify.json`, byDay, cur.sha, 'shopify: reporte');
+  await cleanLegacyShopify();
   return { dias: Object.keys(byDay).length };
+}
+async function cleanLegacyShopify() {
+  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
+  if (!daily) return; let ch = false;
+  Object.keys(daily).forEach(d => { if (daily[d].ventas_shopify !== undefined || daily[d].facturacion_shopify !== undefined) { delete daily[d].ventas_shopify; delete daily[d].facturacion_shopify; ch = true; if (Object.keys(daily[d]).length === 0) delete daily[d]; } });
+  if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar shopify legado');
 }
 
 async function importOrders(buffer) {
@@ -231,6 +244,15 @@ const server = http.createServer(async (req, res) => {
       if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
       const result = await importShopify(Buffer.from(body.file, 'base64'));
       return sendJson(res, 200, result);
+    }
+    if (url === '/api/meta' && req.method === 'GET') return sendJson(res, 200, await getMeta());
+    if (url === '/api/shopify' && req.method === 'GET') return sendJson(res, 200, await getShopify());
+    if (url === '/api/clear' && req.method === 'POST') {
+      const body = await readBody(req); const tipo = body.tipo;
+      if (tipo === 'meta') { const c = await readJson(`${GH.base}/meta.json`); await writeJson(`${GH.base}/meta.json`, {}, c.sha, 'clear meta'); await cleanLegacyMeta(); return sendJson(res, 200, { ok: true }); }
+      if (tipo === 'shopify') { const c = await readJson(`${GH.base}/shopify.json`); await writeJson(`${GH.base}/shopify.json`, {}, c.sha, 'clear shopify'); await cleanLegacyShopify(); return sendJson(res, 200, { ok: true }); }
+      if (tipo === 'dropi') { const months = await listOrderMonths(); for (const mo of months) { const p = `${GH.base}/orders/${mo}.json`; const { sha } = await readJson(p); await writeJson(p, {}, sha, 'clear orders ' + mo); } return sendJson(res, 200, { ok: true }); }
+      return sendJson(res, 400, { error: 'tipo inválido' });
     }
     if (url === '/api/daily' && req.method === 'GET') return sendJson(res, 200, await getDaily());
     if (url === '/api/daily' && req.method === 'POST') {
