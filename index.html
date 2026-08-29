@@ -55,6 +55,9 @@
   .badge{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:800;color:var(--amber);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);padding:2px 7px;border-radius:20px}
   .alertnote{font-size:10px;font-weight:600;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:4px 7px;margin-top:8px;line-height:1.3}
   .alertnote.ok{color:var(--green);background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.3)}
+  .metanote{font-size:10.5px;font-weight:600;color:var(--sub);margin-top:8px;display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+  .metainp{width:52px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:2px 5px;font:600 11px "Inter";text-align:right;outline:none}
+  .metainp:focus{border-color:var(--purple)}
 
   table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
@@ -307,7 +310,11 @@ function renderDashboard(){
   const recOk=m.ganancia>=m.inv;
   const recolectadoCard=`<div class="stat ${recOk?'grn':'red'}"><div class="k">Recolectado Dropi</div><div class="v">${usd(m.ganancia)}</div><div class="alertnote ${recOk?'ok':''}">⚠️ Mínimo: recolectar la inversión (${usd(m.inv)})</div></div>`;
   const roas2v=m.inv?m.ganancia/m.inv:0;
-  const roas2Card=`<div class="stat ${roas2v>=1?'grn':'red'}"><div class="k">🚀 ROAS 2</div><div class="v">${dec(roas2v)}×</div><div class="s">recolectado ÷ inversión</div><div class="alertnote ${roas2v>=1?'ok':''}">⚠️ Mínimo 1× para breakeven</div></div>`;
+  const recPctV=m.facturacion?m.ganancia/m.facturacion*100:0;
+  const metaRoas2=(CFG.metaRoas2!=null?CFG.metaRoas2:1);
+  const metaRecPct=(CFG.metaRecPct!=null?CFG.metaRecPct:30);
+  const roas2Card=`<div class="stat ${roas2v>=metaRoas2?'grn':'red'}"><div class="k">🚀 ROAS 2</div><div class="v">${dec(roas2v)}×</div><div class="s">recolectado ÷ inversión</div><div class="metanote">🎯 Meta: <input type="number" id="metaRoas2N" class="metainp" step="0.1" min="0" value="${metaRoas2}">× <span class="msg" id="metaRoas2Msg"></span></div></div>`;
+  const recPctCard=`<div class="stat ${recPctV>=metaRecPct?'grn':'red'}"><div class="k">% Recolectado Dropi</div><div class="v">${pct(m.facturacion?m.ganancia/m.facturacion:0)}</div><div class="s">recolectado ÷ facturación</div><div class="metanote">🎯 Meta: <input type="number" id="metaRecPctN" class="metainp" step="1" min="0" value="${metaRecPct}">% <span class="msg" id="metaRecMsg"></span></div></div>`;
   $('#view-dashboard').innerHTML=`
     <h2 class="title">📊 Dashboard</h2>
     <p class="muted">${m.label} · ${m.gen} pedidos</p>
@@ -360,11 +367,15 @@ function renderDashboard(){
       ${recolectadoCard}
       ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
     </div>
-    <div class="cards" style="margin-top:12px">
-      ${tile('% Recolectado Dropi',pct(m.facturacion?m.ganancia/m.facturacion:0),'','recolectado ÷ facturación')}
-      ${tile('% Ganancia neta (entregada)',pct(m.factEnt?m.gananciaNeta/m.factEnt:0),m.gananciaNeta>=0?'grn':'red','ganancia neta ÷ fact. entregada')}
-      ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
+    <div class="sec-h" style="color:var(--cyan)">Recolectado Dropi</div>
+    <div class="cards">
       ${roas2Card}
+      ${recPctCard}
+    </div>
+    <div class="sec-h" style="color:var(--green)">Ganancia neta</div>
+    <div class="cards">
+      ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
+      ${tile('% Ganancia neta (entregada)',pct(m.factEnt?m.gananciaNeta/m.factEnt:0),m.gananciaNeta>=0?'grn':'red','ganancia neta ÷ fact. entregada')}
       ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
     </div>
     <div class="sec-h">Costos</div>
@@ -445,6 +456,12 @@ function renderDashboard(){
     numi.addEventListener('input',function(){ upd(this.value); });
     rng.addEventListener('change',function(){ save(Math.round(+this.value)); });
     numi.addEventListener('change',function(){ save(Math.round(+this.value)); });
+  })();
+  // Metas editables (ROAS 2 y % Recolectado Dropi)
+  (function(){
+    var saveCfg=function(patch,msgEl){ Object.assign(CFG,patch); fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}).then(function(r){return r.json();}).then(function(c){CFG=c; if(msgEl){msgEl.className='msg ok';msgEl.textContent='✓';setTimeout(function(){msgEl.textContent='';},1200);} renderDashboard(); },function(){}); };
+    var r2=$('#metaRoas2N'); if(r2) r2.addEventListener('change',function(){ saveCfg({metaRoas2:+this.value||0}, $('#metaRoas2Msg')); });
+    var rp=$('#metaRecPctN'); if(rp) rp.addEventListener('change',function(){ saveCfg({metaRecPct:+this.value||0}, $('#metaRecMsg')); });
   })();
 }
 
