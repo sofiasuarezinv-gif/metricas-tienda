@@ -112,6 +112,7 @@ function parseMeta(buffer) {
   let fechaCol = find('DIA', 'DAY', 'FECHA', 'DATE');
   const spendCol = find('IMPORTE GASTADO', 'AMOUNT SPENT', 'GASTADO', 'GASTO', 'SPEND', 'INVERSION');
   const ventasCol = find('COMPRAS EN EL SITIO WEB', 'WEBSITE PURCHASES', 'COMPRAS', 'PURCHASES', 'RESULTADOS', 'RESULTS', 'VENTAS');
+  const facCol = find('VALOR DE CONVERSION DE COMPRAS', 'PURCHASES CONVERSION VALUE', 'VALOR DE CONVERSION', 'CONVERSION VALUE', 'VALOR DE CONVERSIONES');
   // Respaldo: si no se detectó por nombre (acentos corruptos, etc.), elegir la columna con más fechas válidas
   if (fechaCol < 0) {
     let best = -1, bestN = 0;
@@ -125,19 +126,19 @@ function parseMeta(buffer) {
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : '');
     if (!fecha) continue;
-    out.push({ fecha, inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0 });
+    out.push({ fecha, inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0, facturacion: facCol >= 0 ? numv(r[facCol]) : 0 });
   }
   return out;
 }
 async function importMeta(buffer) {
   const parsed = parseMeta(buffer);
   const byDay = {};
-  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas_meta: 0 }; b.inversion += p.inversion; b.ventas_meta += p.ventas_meta; });
+  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas_meta: 0, facturacion: 0 }; b.inversion += p.inversion; b.ventas_meta += p.ventas_meta; b.facturacion += p.facturacion; });
   const invR = await readJson(`${GH.base}/investment.json`); const inv = invR.obj || {};
   const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
   Object.entries(byDay).forEach(([d, v]) => {
     inv[d] = Math.round(v.inversion);
-    const cur = daily[d] || {}; cur.ventas_meta = v.ventas_meta; daily[d] = cur;
+    const cur = daily[d] || {}; cur.ventas_meta = v.ventas_meta; cur.facturacion_meta = Math.round(v.facturacion); daily[d] = cur;
   });
   await writeJson(`${GH.base}/investment.json`, inv, invR.sha, 'meta: inversión');
   await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'meta: ventas');
@@ -155,20 +156,23 @@ function parseShopify(buffer) {
   let fechaCol = find('CREATED AT', 'FECHA DE CREACION', 'PAID AT', 'FECHA', 'DIA', 'DAY', 'DATE');
   const nameCol = find('NAME', 'NUMERO DE PEDIDO', 'ORDER NAME', 'PEDIDO', 'ORDER', 'NUMBER');
   const countCol = find('PEDIDOS', 'ORDERS', 'ORDER COUNT', 'TOTAL ORDERS', 'CANTIDAD DE PEDIDOS');
+  const totalCol = find('TOTAL', 'TOTAL PRICE', 'PRECIO TOTAL', 'MONTO TOTAL', 'IMPORTE TOTAL', 'VENTAS TOTALES', 'TOTAL SALES');
   if (fechaCol < 0) { let best = -1, bestN = 0; for (let c = 0; c < hdr.length; c++) { let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++; if (n > bestN) { bestN = n; best = c; } } fechaCol = best; }
-  const byDay = {}, seen = {};
+  const byDay = {}, seen = {}; // byDay[fecha] = { count, total }
+  const b = (d) => (byDay[d] = byDay[d] || { count: 0, total: 0 });
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : ''); if (!fecha) continue;
-    if (countCol >= 0) { byDay[fecha] = (byDay[fecha] || 0) + numv(r[countCol]); }
-    else if (nameCol >= 0) { const nm = String(r[nameCol] || '').trim(); if (nm) { const k = fecha + '|' + nm; if (!seen[k]) { seen[k] = 1; byDay[fecha] = (byDay[fecha] || 0) + 1; } } }
-    else { byDay[fecha] = (byDay[fecha] || 0) + 1; }
+    if (totalCol >= 0) b(fecha).total += numv(r[totalCol]); // en Shopify solo la 1ª línea del pedido trae el total
+    if (countCol >= 0) { b(fecha).count += numv(r[countCol]); }
+    else if (nameCol >= 0) { const nm = String(r[nameCol] || '').trim(); if (nm) { const k = fecha + '|' + nm; if (!seen[k]) { seen[k] = 1; b(fecha).count += 1; } } }
+    else { b(fecha).count += 1; }
   }
   return byDay;
 }
 async function importShopify(buffer) {
   const byDay = parseShopify(buffer);
   const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
-  Object.entries(byDay).forEach(([d, v]) => { const cur = daily[d] || {}; cur.ventas_shopify = v; daily[d] = cur; });
+  Object.entries(byDay).forEach(([d, v]) => { const cur = daily[d] || {}; cur.ventas_shopify = v.count; cur.facturacion_shopify = Math.round(v.total); daily[d] = cur; });
   await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'shopify: ventas');
   return { dias: Object.keys(byDay).length };
 }

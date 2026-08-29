@@ -255,21 +255,25 @@ function metrics(){
   const facturacion=sum(os,'venta'), factEnt=sum(ent,'venta'), ganancia=sum(ent,'ganancia');
   const flete=sum(os,'flete'), proveedor=sum(ent,'proveedor');
   const costoDev=dev.reduce((s,o)=>s+(o.flete||0)+(o.dev_flete||0),0);
-  // costos para la ganancia promedio: transportadoras (flete de despachados) y devoluciones (flete de retorno)
+  // costos por DESPACHADOS (no cancelados): transportadoras, proveedor; y devoluciones (flete de retorno)
   const noCancel=os.filter(o=>o.estado!=='CANCELADO');
   const costoTransp=noCancel.reduce((s,o)=>s+(o.flete||0),0);
+  const proveedorDesp=noCancel.reduce((s,o)=>s+(o.proveedor||0),0);
   const costoDevRet=dev.reduce((s,o)=>s+(o.dev_flete||0),0);
   let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
-  // overrides diarios (inversión editada + ventas de Meta/Shopify + preliminares)
-  let ventasMeta=0, ventasShopify=0, prelim=0, invOv=0;
+  // overrides diarios (inversión editada + ventas y facturación de Meta/Shopify + preliminares)
+  let ventasMeta=0, ventasShopify=0, factMeta=0, factShopify=0, prelim=0, invOv=0;
   Object.entries(DAILY).forEach(([d,o])=>{ if(d<r.from||d>r.to) return;
     if(o.ventas_meta!==undefined) ventasMeta+=(+o.ventas_meta||0);
     if(o.ventas_shopify!==undefined) ventasShopify+=(+o.ventas_shopify||0);
+    if(o.facturacion_meta!==undefined) factMeta+=(+o.facturacion_meta||0);
+    if(o.facturacion_shopify!==undefined) factShopify+=(+o.facturacion_shopify||0);
     if(o.preliminares!==undefined) prelim+=(+o.preliminares||0);
     if(o.inversion!==undefined){ invOv+=(+o.inversion||0); inv-=(+INV[d]||0); } });
   inv+=invOv;
   const gananciaNeta=ganancia-inv;
-  return {os,...f, facturacion,factEnt,ganancia,flete,proveedor,costoDev,costoTransp,costoDevRet,inv,gananciaNeta,ventasMeta,ventasShopify,prelim,
+  return {os,...f, facturacion,factEnt,ganancia,flete,proveedor,proveedorDesp,costoDev,costoTransp,costoDevRet,inv,gananciaNeta,
+    ventasMeta,ventasShopify,factMeta,factShopify,prelim,
     cpaMeta:ventasMeta?inv/ventasMeta:0, cpaShopify:ventasShopify?inv/ventasShopify:0,
     cpa1:f.gen?inv/f.gen:0, cpa2:f.desp?inv/f.desp:0, cpa3:f.ent?inv/f.ent:0,
     roas1:inv?facturacion/inv:0, roas2:inv?factEnt/inv:0, roi:inv?gananciaNeta/inv:0, label:r.label};
@@ -284,32 +288,81 @@ function renderDashboard(){
   const ef=(CFG.efectividad!=null?CFG.efectividad:75);
   const ganProm=fn=>m.facturacion*(fn/100)-m.costoTransp-m.costoDevRet-m.inv;
   const gp=ganProm(ef);
+  const roiProm=m.inv?gp/m.inv:0;
   const ganCard=`<div class="stat ${gp>=0?'grn':'red'}"><div class="k">📈 Ganancia promedio</div><div class="v" id="ganPromVal">${usd(gp)}</div><div class="s" id="ganPromSub">facturación×${ef}% − transp − devol − inversión</div></div>`;
+  const roiPromCard=`<div class="stat ${roiProm>=0?'grn':'red'}"><div class="k">📈 ROI promedio</div><div class="v" id="roiPromVal">${dec(roiProm,2)}</div><div class="s">ganancia promedio ÷ inversión</div></div>`;
+  // bloques por fuente
+  const pcpa=fa=>fa?pct(m.inv/fa):'—', roasOf=fa=>m.inv?dec(fa/m.inv)+'×':'—';
   $('#view-dashboard').innerHTML=`
     <h2 class="title">📊 Dashboard</h2>
     <p class="muted">${m.label} · ${m.gen} pedidos</p>
-    <div class="sec-h">Meta / Facebook</div>
+    <div class="sec-h">Métricas principales</div>
     <div class="cards">
       ${tile('💰 Inversión',usd(m.inv),'pur')}
       ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
-      ${ganCard}
-      ${tile('🛍️ Ventas Meta',m.ventasMeta,'cyan','compras reportadas por Meta')}
-      ${tile('🎯 CPA Meta',m.ventasMeta?usd(m.cpaMeta):'—','','inversión ÷ ventas Meta')}
-      ${tile('🛒 Ventas Shopify',m.ventasShopify,'cyan','pedidos en Shopify')}
-      ${tile('🎯 CPA Shopify',m.ventasShopify?usd(m.cpaShopify):'—','','inversión ÷ ventas Shopify')}
-      ${tile('📝 Preliminares',m.prelim,'','checkouts sin terminar (Shopify)')}
-      ${tile('📦 Ventas Dropi',m.gen,'','pedidos generados en Dropi')}
-      ${tile('🎯 CPA Dropi',usd(m.cpa1),'','inversión ÷ ventas Dropi')}
       ${tile('🚀 ROAS',dec(m.roas1)+'×','amb','facturación ÷ inversión')}
-      ${tile('📊 % CPA',m.facturacion?pct(m.inv/m.facturacion):'—','','inversión ÷ facturación')}
+      ${ganCard}
+      ${roiPromCard}
     </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 2px 0;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 16px">
-      <span style="font-size:12.5px;color:var(--sub);font-weight:700">⚖️ % que se entrega (para la ganancia promedio)</span>
+      <span style="font-size:12.5px;color:var(--sub);font-weight:700">⚖️ % que se entrega (para la ganancia y el ROI promedio)</span>
       <input type="range" id="ganPct" min="0" max="100" step="1" value="${ef}" style="flex:1;min-width:150px;accent-color:var(--purple2)">
       <input type="number" id="ganPctN" min="0" max="100" value="${ef}" style="width:64px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 8px;text-align:right;font-weight:700">
       <span style="color:var(--sub)">%</span>
       <span class="msg" id="ganMsg" style="font-size:12px"></span>
     </div>
+    <div class="sec-h" style="color:var(--cyan)">📱 Meta</div>
+    <div class="cards">
+      ${tile('🛍️ Ventas Meta',m.ventasMeta,'cyan','compras reportadas')}
+      ${tile('🎯 CPA',m.ventasMeta?usd(m.cpaMeta):'—','','inversión ÷ ventas')}
+      ${tile('📊 % CPA',pcpa(m.factMeta),'','inversión ÷ facturación')}
+      ${tile('🧾 Facturación',usd(m.factMeta),'grn','valor de conversión (reporte Meta)')}
+      ${tile('🚀 ROAS',roasOf(m.factMeta),'amb','facturación ÷ inversión')}
+    </div>
+    <div class="sec-h" style="color:var(--green)">🛒 Shopify</div>
+    <div class="cards">
+      ${tile('🛒 Ventas Shopify',m.ventasShopify,'cyan','pedidos en Shopify')}
+      ${tile('🎯 CPA',m.ventasShopify?usd(m.cpaShopify):'—','','inversión ÷ ventas')}
+      ${tile('📊 % CPA',pcpa(m.factShopify),'','inversión ÷ facturación')}
+      ${tile('🧾 Facturación',usd(m.factShopify),'grn','totales (reporte Shopify)')}
+      ${tile('🚀 ROAS',roasOf(m.factShopify),'amb','facturación ÷ inversión')}
+    </div>
+    <div class="sec-h" style="color:var(--purple)">📦 Dropi</div>
+    <div class="cards">
+      ${tile('📝 Preliminares',m.prelim,'','checkouts sin terminar (Shopify)')}
+      ${tile('📦 Ventas Dropi',m.gen,'','pedidos generados')}
+      ${tile('🎯 CPA',usd(m.cpa1),'','inversión ÷ ventas')}
+      ${tile('📊 % CPA',pcpa(m.facturacion),'','inversión ÷ facturación')}
+      ${tile('🧾 Facturación',usd(m.facturacion),'grn','ventas que entraron a Dropi')}
+      ${tile('🚀 ROAS',roasOf(m.facturacion),'amb','facturación ÷ inversión')}
+    </div>
+    <div class="sec-h">Rentabilidad ($)</div>
+    <div class="cards">
+      ${tile('Facturación',usd(m.facturacion),'grn')}
+      ${tile('Facturación entregada',usd(m.factEnt),'grn','valor producto × entregados')}
+      ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
+      ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
+      ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
+    </div>
+    <div class="cards" style="margin-top:12px">
+      ${tile('Ganancia entregados',usd(m.ganancia),'grn')}
+      ${tile('Costo proveedor',usd(m.proveedorDesp),'red','despachados')}
+      ${tile('Costo transportadoras',usd(m.costoTransp),'red','despachados')}
+      ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
+    </div>
+    <div class="sec-h">🎯 Meta: facturar entregado = facturación total</div>
+    ${(function(){ var meta=m.facturacion, act=m.factEnt, p=meta?act/meta:0, falta=Math.max(0,meta-act);
+      return `<div class="chartcard">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:8px">
+          <span>Facturado <b>entregado</b>: <b style="color:var(--green)">${usd(act)}</b></span>
+          <span>Meta (facturación total): <b style="color:var(--purple)">${usd(meta)}</b></span>
+        </div>
+        <div style="background:var(--bg3);border-radius:9px;height:26px;overflow:hidden;position:relative">
+          <div style="height:100%;width:${Math.min(100,p*100).toFixed(1)}%;background:linear-gradient(90deg,var(--purple2),var(--green));transition:.3s"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px">${pct(p)} de la meta</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--sub);margin-top:8px">Faltan <b style="color:var(--amber)">${usd(falta)}</b> para alcanzar la meta.</div>
+      </div>`; })()}
     <div class="sec-h">Embudo de pedidos</div>
     <div class="cards">
       ${tile('Generados',m.gen,'')}
@@ -327,25 +380,15 @@ function renderDashboard(){
       ${tile('CPA ventas',usd(m.cpa1),'','inv ÷ generados')}
       ${tile('CPA despachados',usd(m.cpa2),'','inv ÷ despachados')}
       ${tile('CPA entregados',usd(m.cpa3),'','inv ÷ entregados')}
-    </div>
-    <div class="sec-h">Rentabilidad ($)</div>
-    <div class="cards">
-      ${tile('Facturación',usd(m.facturacion),'grn')}
-      ${tile('Costo transportadoras',usd(m.flete),'red','flete total')}
-      ${tile('Costo proveedor',usd(m.proveedor),'red','entregados')}
-      ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
-      ${tile('Ganancia entregados',usd(m.ganancia),'grn')}
-      ${tile('ROAS entregados',dec(m.roas2)+'×','amb','fact. entregada ÷ inv')}
-      ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
-      ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
     </div>`;
   // Slider de la ganancia promedio (usa la misma efectividad que la proyección del Diario)
   (function(){
-    var rng=$('#ganPct'), numi=$('#ganPctN'), val=$('#ganPromVal'), sub=$('#ganPromSub'), msg=$('#ganMsg');
+    var rng=$('#ganPct'), numi=$('#ganPctN'), val=$('#ganPromVal'), sub=$('#ganPromSub'), rval=$('#roiPromVal'), msg=$('#ganMsg');
     if(!rng) return;
     var upd=function(v){ v=Math.max(0,Math.min(100,Math.round(+v||0))); rng.value=v; numi.value=v;
-      var g=ganProm(v);
+      var g=ganProm(v), rp=m.inv?g/m.inv:0;
       if(val){ val.textContent=usd(g); val.parentNode.classList.remove('grn','red'); val.parentNode.classList.add(g>=0?'grn':'red'); }
+      if(rval){ rval.textContent=dec(rp,2); rval.parentNode.classList.remove('grn','red'); rval.parentNode.classList.add(rp>=0?'grn':'red'); }
       if(sub) sub.textContent='facturación×'+v+'% − transp − devol − inversión'; };
     var saveEf=function(v){ CFG.efectividad=v; fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({efectividad:v})}).then(function(r){return r.json();}).then(function(c){CFG=c; if(msg){msg.className='msg ok';msg.textContent='✓ Guardado';setTimeout(function(){msg.textContent='';},1400);} },function(){}); };
     rng.addEventListener('input',function(){ upd(this.value); });
