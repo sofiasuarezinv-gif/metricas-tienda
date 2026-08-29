@@ -150,7 +150,7 @@ async function importMeta(buffer) {
 async function cleanLegacyMeta() {
   const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
   if (daily) { let ch = false; Object.keys(daily).forEach(d => { if (daily[d].ventas_meta !== undefined || daily[d].facturacion_meta !== undefined) { delete daily[d].ventas_meta; delete daily[d].facturacion_meta; ch = true; if (Object.keys(daily[d]).length === 0) delete daily[d]; } }); if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar meta legado'); }
-  const iR = await readJson(`${GH.base}/investment.json`); if (iR.obj && Object.keys(iR.obj).length) await writeJson(`${GH.base}/investment.json`, {}, iR.sha, 'limpiar inversión legado');
+  // NO tocar investment.json: ahí vive la inversión diaria manual del usuario (la de Meta va en meta.json)
 }
 
 // ─────────── Parseo del reporte de Shopify (pedidos por día) ───────────
