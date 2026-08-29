@@ -421,7 +421,8 @@ function renderDashboard(){
       ${tile('Costo proveedor',usd(m.proveedorDesp),'red','despachados')}
       ${tile('Costo transportadoras',usd(m.costoTransp),'red','despachados')}
       ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
-      ${tile('Inversión',usd(m.inv),'pur')}
+      ${tile('Inversión',usd(m.inv),'red')}
+      ${tile('🧮 Costos totales',usd(m.proveedorDesp+m.costoTransp+m.costoDev+m.inv),'red','proveedor + transp + devol + inversión')}
     </div>
     <div class="maintitle">🚚 Métricas de Logística</div>
     <div class="sec-h">Embudo de pedidos</div>
