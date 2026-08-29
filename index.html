@@ -185,6 +185,7 @@
       <p class="muted">Subí el Excel de Dropi y el reporte de Meta. Se guardan para siempre; los pedidos de Dropi se <b>de-duplican por ID</b> (re-subir actualiza estado, no duplica).</p>
       <div class="sec-h">Reporte de Dropi <span class="upstat" id="stat-dropi"></span></div>
       <div class="panel" style="margin-bottom:22px">
+        <p class="muted" style="margin-top:0">Cada venta de Dropi se cuenta en la fecha en que <b>entró a Shopify</b> (no cuando logística la subió a Dropi), enlazando por número de pedido o teléfono. 👉 Subí primero el reporte de Shopify; igual, si subís Shopify después, se re-fechan solas.</p>
         <div class="drop" id="drop" onclick="document.getElementById('file').click()">
           <div style="font-size:30px">📄</div><div>Tocá para elegir el Excel de Dropi (.xlsx)</div>
         </div>
@@ -872,7 +873,8 @@ async function subir(ev){
     const res=await r.json();
     if(!r.ok) throw new Error(res.detail||res.error||'error');
     await load();
-    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.added} nuevos, ${res.updated} actualizados (${res.total} en el archivo, sin pruebas).`;
+    const rf = res.refechados ? ` · ${res.refechados} re-fechados a su entrada en Shopify` : '';
+    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.added} nuevos, ${res.updated} actualizados (${res.total} en el archivo, sin pruebas)${rf}.`;
     toast('✓ Reporte cargado');
   }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
   ev.target.value='';
@@ -901,7 +903,8 @@ async function subirShopify(ev){
     const res=await r.json();
     if(!r.ok) throw new Error(res.detail||res.error||'error');
     await load();
-    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.dias} días con ventas de Shopify cargadas.`;
+    const rf = res.refechados ? ` · ${res.refechados} pedidos de Dropi re-fechados a su entrada en Shopify` : '';
+    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.dias} días con ventas de Shopify cargadas${rf}.`;
     toast('✓ Reporte de Shopify cargado');
   }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
   ev.target.value='';

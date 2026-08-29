@@ -61,8 +61,12 @@ async function getShopify() { const { obj } = await readJson(`${GH.base}/shopify
 
 // ─────────── Parseo del Excel de Dropi ───────────
 const norm = (s) => (s == null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
-const parseDate = (s) => { if (!s) return ''; const m = String(s).match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; const d = new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0, 10); };
+const parseDate = (s) => { if (!s) return ''; const str = String(s);
+  const iso = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`; // ISO al inicio (ej. Shopify "2026-08-24 08:24 -0500") → tomar fecha local, NO convertir a UTC
+  const m = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const d = new Date(str); return isNaN(d) ? '' : d.toISOString().slice(0, 10); };
 const numv = (v) => { if (v == null || v === '') return 0; const n = parseFloat(String(v).replace(/[^\d.-]/g, '')); return isFinite(n) ? n : 0; };
+const phv = (v) => { const d = String(v || '').replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }; // últimos 10 dígitos (celular CO) para emparejar teléfonos
 
 function parseDropi(buffer) {
   const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -77,6 +81,7 @@ function parseDropi(buffer) {
     flete: col('PRECIO FLETE'), devflete: col('COSTO DEVOLUCION FLETE'), proveedor: col('TOTAL EN PRECIOS DE PROVEEDOR'),
     ultmov: col('FECHA DE ULTIMO MOVIMIENTO'), depto: col('DEPARTAMENTO DESTINO'), ciudad: col('CIUDAD DESTINO'),
     tipoenvio: col('TIPO DE ENVIO'),
+    tiendaNum: col('NUMERO DE PEDIDO DE TIENDA'), tiendaId: col('ID DE ORDEN DE TIENDA'), tel: col('TELEFONO'), // para enlazar con Shopify
   };
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -91,6 +96,9 @@ function parseDropi(buffer) {
       dev_flete: numv(r[c.devflete]), proveedor: numv(r[c.proveedor]), ult_mov: parseDate(r[c.ultmov]),
       depto: String(r[c.depto] || ''), ciudad: String(r[c.ciudad] || ''),
       tipo_envio: String(r[c.tipoenvio] || '').trim().toUpperCase(),
+      tienda_num: c.tiendaNum >= 0 ? String(r[c.tiendaNum] || '').replace('#', '').trim() : '',
+      tienda_id: c.tiendaId >= 0 ? String(r[c.tiendaId] || '').trim() : '',
+      telefono: c.tel >= 0 ? String(r[c.tel] || '') : '',
     });
   }
   return out;
@@ -163,10 +171,12 @@ function parseShopify(buffer) {
   const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
   let fechaCol = find('CREATED AT', 'FECHA DE CREACION', 'PAID AT', 'FECHA', 'DIA', 'DAY', 'DATE');
   const nameCol = find('NAME', 'NUMERO DE PEDIDO', 'ORDER NAME', 'PEDIDO', 'ORDER', 'NUMBER');
+  const idCol = hdr.findIndex(h => h === 'ID'); // "Id" del pedido de Shopify (== "ID DE ORDEN DE TIENDA" en Dropi)
+  const phoneCols = hdr.map((h, i) => (h.includes('PHONE') || h.includes('TELEFONO')) ? i : -1).filter(i => i >= 0); // Phone/Billing/Shipping
   const countCol = find('PEDIDOS', 'ORDERS', 'ORDER COUNT', 'TOTAL ORDERS', 'CANTIDAD DE PEDIDOS');
   const totalCol = find('TOTAL', 'TOTAL PRICE', 'PRECIO TOTAL', 'MONTO TOTAL', 'IMPORTE TOTAL', 'VENTAS TOTALES', 'TOTAL SALES');
   if (fechaCol < 0) { let best = -1, bestN = 0; for (let c = 0; c < hdr.length; c++) { let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++; if (n > bestN) { bestN = n; best = c; } } fechaCol = best; }
-  const byDay = {}, seen = {}; // byDay[fecha] = { count, total }
+  const byDay = {}, seen = {}, dates = {}; // byDay[fecha]={count,total}; dates['i:'+id | 'n:'+num] = fecha de entrada a Shopify
   const b = (d) => (byDay[d] = byDay[d] || { count: 0, total: 0 });
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : ''); if (!fecha) continue;
@@ -174,17 +184,27 @@ function parseShopify(buffer) {
     if (countCol >= 0) { b(fecha).count += numv(r[countCol]); }
     else if (nameCol >= 0) { const nm = String(r[nameCol] || '').trim(); if (nm) { const k = fecha + '|' + nm; if (!seen[k]) { seen[k] = 1; b(fecha).count += 1; } } }
     else { b(fecha).count += 1; }
+    // mapa de fechas para re-fechar Dropi (1ª aparición de cada pedido)
+    const nm = nameCol >= 0 ? String(r[nameCol] || '').replace('#', '').trim() : '';
+    const id = idCol >= 0 ? String(r[idCol] || '').trim() : '';
+    if (nm && !dates['n:' + nm]) dates['n:' + nm] = fecha;
+    if (id && !dates['i:' + id]) dates['i:' + id] = fecha;
+    for (const pc of phoneCols) { const ph = phv(r[pc]); if (ph && !dates['p:' + ph]) { dates['p:' + ph] = fecha; break; } }
   }
-  return byDay;
+  return { byDay, dates };
 }
 async function importShopify(buffer) {
-  const parsed = parseShopify(buffer);
+  const { byDay: parsed, dates } = parseShopify(buffer);
   const byDay = {}; // { fecha: {ventas, facturacion} }
   Object.entries(parsed).forEach(([d, v]) => { byDay[d] = { ventas: v.count, facturacion: Math.round(v.total) }; });
   const cur = await readJson(`${GH.base}/shopify.json`);
   await writeJson(`${GH.base}/shopify.json`, byDay, cur.sha, 'shopify: reporte');
+  // guardar mapa de fechas de pedidos (para que al subir Dropi se re-feche por la entrada a Shopify)
+  const curD = await readJson(`${GH.base}/shopify_dates.json`);
+  await writeJson(`${GH.base}/shopify_dates.json`, dates, curD.sha, 'shopify: fechas de pedidos');
+  const refechados = await applyShopifyDatesToStored(dates); // re-fechar pedidos de Dropi ya guardados
   await cleanLegacyShopify();
-  return { dias: Object.keys(byDay).length };
+  return { dias: Object.keys(byDay).length, pedidos: Object.keys(dates).filter(k => k[0] === 'n').length, refechados };
 }
 async function cleanLegacyShopify() {
   const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
@@ -193,19 +213,53 @@ async function cleanLegacyShopify() {
   if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar shopify legado');
 }
 
+// Devuelve la fecha de entrada a Shopify para un pedido de Dropi (por id de tienda, número de pedido o teléfono)
+const matchShopifyDate = (o, dates) => (o.tienda_id && dates['i:' + o.tienda_id]) || (o.tienda_num && dates['n:' + o.tienda_num]) || (o.telefono && dates['p:' + phv(o.telefono)]) || '';
+
+// Re-fecha los pedidos YA guardados según el mapa de Shopify (para cuando Dropi se subió antes que Shopify)
+async function applyShopifyDatesToStored(dates) {
+  if (!dates || !Object.keys(dates).length) return 0;
+  const months = await listOrderMonths(); const stores = {}, shas = {}, dirty = new Set();
+  for (const m of months) { const { obj, sha } = await readJson(`${GH.base}/orders/${m}.json`); stores[m] = obj || {}; shas[m] = sha; }
+  let moved = 0;
+  for (const m of months) for (const id of Object.keys(stores[m])) {
+    const o = stores[m][id]; const sf = matchShopifyDate(o, dates);
+    if (sf && o.fecha !== sf) {
+      moved++; o.fecha_dropi = o.fecha_dropi || o.fecha; o.fecha = sf; const newM = sf.slice(0, 7);
+      if (newM !== m) { stores[newM] = stores[newM] || {}; stores[newM][id] = o; delete stores[m][id]; dirty.add(newM); }
+      dirty.add(m);
+    }
+  }
+  for (const m of dirty) await writeJson(`${GH.base}/orders/${m}.json`, stores[m], shas[m], `re-fechar orders ${m} por Shopify`);
+  return moved;
+}
+
 async function importOrders(buffer) {
   const parsed = parseDropi(buffer);
+  // Re-fechar por la fecha de entrada a Shopify (logística sube a Dropi 0-1+ días después)
+  const { obj: sd } = await readJson(`${GH.base}/shopify_dates.json`);
+  const dates = sd || {};
+  let refechados = 0; const removeFrom = {}; // mes viejo -> [ids] que cambiaron de mes al re-fechar
+  for (const o of parsed) {
+    const sf = matchShopifyDate(o, dates);
+    if (sf) {
+      if (o.fecha !== sf) { refechados++; const oldM = (o.fecha || '').slice(0, 7), newM = sf.slice(0, 7); if (oldM && oldM !== newM) (removeFrom[oldM] = removeFrom[oldM] || []).push(o.id); }
+      o.fecha_dropi = o.fecha; o.fecha = sf; // fecha = entrada Shopify; guardo la de Dropi por referencia
+    }
+  }
   const byMonth = {};
   for (const o of parsed) { const m = (o.fecha || '0000-00').slice(0, 7); (byMonth[m] = byMonth[m] || []).push(o); }
   let added = 0, updated = 0;
-  for (const [m, list] of Object.entries(byMonth)) {
+  const allMonths = new Set([...Object.keys(byMonth), ...Object.keys(removeFrom)]);
+  for (const m of allMonths) {
     const p = `${GH.base}/orders/${m}.json`;
     const { obj, sha } = await readJson(p);
     const store = obj || {};
-    for (const o of list) { if (store[o.id]) updated++; else added++; store[o.id] = o; }
-    await writeJson(p, store, sha, `orders ${m}: +${list.length}`);
+    for (const o of (byMonth[m] || [])) { if (store[o.id]) updated++; else added++; store[o.id] = o; }
+    for (const id of (removeFrom[m] || [])) { if (store[id] && !(byMonth[m] || []).some(o => o.id === id)) delete store[id]; } // quitar copia vieja de pedido que se movió de mes
+    await writeJson(p, store, sha, `orders ${m}: +${(byMonth[m] || []).length}`);
   }
-  return { total: parsed.length, added, updated, meses: Object.keys(byMonth) };
+  return { total: parsed.length, added, updated, meses: Object.keys(byMonth), refechados };
 }
 
 // ─────────── HTTP ───────────
@@ -250,7 +304,7 @@ const server = http.createServer(async (req, res) => {
     if (url === '/api/clear' && req.method === 'POST') {
       const body = await readBody(req); const tipo = body.tipo;
       if (tipo === 'meta') { const c = await readJson(`${GH.base}/meta.json`); await writeJson(`${GH.base}/meta.json`, {}, c.sha, 'clear meta'); await cleanLegacyMeta(); return sendJson(res, 200, { ok: true }); }
-      if (tipo === 'shopify') { const c = await readJson(`${GH.base}/shopify.json`); await writeJson(`${GH.base}/shopify.json`, {}, c.sha, 'clear shopify'); await cleanLegacyShopify(); return sendJson(res, 200, { ok: true }); }
+      if (tipo === 'shopify') { const c = await readJson(`${GH.base}/shopify.json`); await writeJson(`${GH.base}/shopify.json`, {}, c.sha, 'clear shopify'); const cd = await readJson(`${GH.base}/shopify_dates.json`); await writeJson(`${GH.base}/shopify_dates.json`, {}, cd.sha, 'clear shopify fechas'); await cleanLegacyShopify(); return sendJson(res, 200, { ok: true }); }
       if (tipo === 'dropi') { const months = await listOrderMonths(); for (const mo of months) { const p = `${GH.base}/orders/${mo}.json`; const { sha } = await readJson(p); await writeJson(p, {}, sha, 'clear orders ' + mo); } return sendJson(res, 200, { ok: true }); }
       return sendJson(res, 400, { error: 'tipo inválido' });
     }
