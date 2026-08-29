@@ -340,7 +340,8 @@ function dailySeries(){
     return {d, inv, ventasMeta, prelim, ventasDropi, cancel, desp, ent, dev, fac, costoProd, costoTransp,
       cpaMeta:ventasMeta?inv/ventasMeta:0, cpaDropi:ventasDropi?inv/ventasDropi:0,
       cpaDesp:desp?inv/desp:0, cpaEnt:ent?inv/ent:0, roas:inv?fac/inv:0,
-      roiMoney: fac-inv-costoProd-costoTransp,   // ROI ($) = facturación − inversión − costo producto − costo transportadoras
+      ganancia: fac-inv-costoProd-costoTransp,   // Ganancia = facturación − inversión − costo producto − costo transportadoras
+      roi: inv ? (fac-inv-costoProd-costoTransp)/inv : 0,   // ROI = ganancia ÷ inversión
       // valores por defecto (para el placeholder y para saber si hay override)
       base:{inversion:+INV[d]||0, ventas_dropi:f.gen, cancelados:f.canc, despachados:(f.gen-f.canc), entregados:f.ent, devoluciones:f.dev, facturacion:facBase}, ov};
   });
@@ -407,7 +408,7 @@ function renderDiario(){
     <th style="color:var(--red)">Devol.</th>
     <th>Facturación</th><th>ROAS</th>
     <th style="color:var(--red)">Costo prod.</th><th style="color:var(--red)">Costo transp.</th>
-    <th class="g-ent">ROI</th>
+    <th class="g-ent">Ganancia</th><th class="g-ent">ROI</th>
   </tr></thead><tbody>`;
   rows.forEach(r=>{ html+=`<tr>
     <td>${r.d}</td>${ed(r.d,'inversion',r.inv)}
@@ -420,10 +421,11 @@ function renderDiario(){
     <td class="num">${usd(r.fac)}</td><td class="num">${r.inv?dec(r.roas)+'×':'—'}</td>
     <td class="num" style="color:var(--red)">${usd(r.costoProd)}</td>
     <td class="num" style="color:var(--red)">${usd(r.costoTransp)}</td>
-    <td class="num" style="color:${r.roiMoney>=0?'var(--green)':'var(--red)'};font-weight:700">${usd(r.roiMoney)}</td>
+    <td class="num" style="color:${r.ganancia>=0?'var(--green)':'var(--red)'};font-weight:700">${usd(r.ganancia)}</td>
+    <td class="num" style="color:${r.roi>=0?'var(--green)':'var(--red)'}">${r.inv?pct(r.roi):'—'}</td>
   </tr>`; });
   // Totales
-  const T=rows.reduce((a,r)=>{['inv','ventasMeta','prelim','ventasDropi','cancel','desp','dev','fac','costoProd','costoTransp','roiMoney'].forEach(k=>a[k]=(a[k]||0)+r[k]);return a;},{});
+  const T=rows.reduce((a,r)=>{['inv','ventasMeta','prelim','ventasDropi','cancel','desp','dev','fac','costoProd','costoTransp','ganancia'].forEach(k=>a[k]=(a[k]||0)+r[k]);return a;},{});
   html+=`<tr class="totals"><td>TOTAL</td><td class="num">${usd(T.inv)}</td>
     <td class="num">${T.ventasMeta}</td><td class="num cpa">${T.ventasMeta?usd(T.inv/T.ventasMeta):'—'}</td>
     <td class="num">${T.prelim}</td>
@@ -434,7 +436,8 @@ function renderDiario(){
     <td class="num">${usd(T.fac)}</td><td class="num">${T.inv?dec(T.fac/T.inv)+'×':'—'}</td>
     <td class="num" style="color:var(--red)">${usd(T.costoProd)}</td>
     <td class="num" style="color:var(--red)">${usd(T.costoTransp)}</td>
-    <td class="num" style="color:${T.roiMoney>=0?'var(--green)':'var(--red)'}">${usd(T.roiMoney)}</td></tr>`;
+    <td class="num" style="color:${T.ganancia>=0?'var(--green)':'var(--red)'}">${usd(T.ganancia)}</td>
+    <td class="num" style="color:${(T.inv?T.ganancia/T.inv:0)>=0?'var(--green)':'var(--red)'}">${T.inv?pct(T.ganancia/T.inv):'—'}</td></tr>`;
   html+=`</tbody></table></div>`;
   $('#view-diario').innerHTML=html;
 }
