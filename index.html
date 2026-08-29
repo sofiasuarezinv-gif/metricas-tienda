@@ -67,6 +67,7 @@
   .rentgroup.blue .rentgroup-h{color:var(--cyan)}
   .rentgroup.green{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.35)}
   .rentgroup.green .rentgroup-h{color:var(--green)}
+  .secdiv{height:0;border-top:2px dashed var(--line);margin:34px 0 4px;opacity:.7}
 
   table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
@@ -369,7 +370,30 @@ function renderDashboard(){
       ${tile('🧾 Facturación',usd(m.facturacion),'grn','ventas que entraron a Dropi')}
       ${tile('🚀 ROAS',roasOf(m.facturacion),'amb','facturación ÷ inversión')}
     </div>
+    <div class="secdiv"></div>
     <div class="sec-h">Rentabilidad ($)</div>
+    ${(function(){ var meta=m.facturacion, act=m.factEnt, p=meta?act/meta:0, target=meta*metaPct/100, falta=Math.max(0,target-act), logrado=act>=target&&target>0;
+      return `<div class="chartcard" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:12.5px;color:var(--sub);font-weight:700">🎯 Meta mínima a facturar (entregado)</span>
+          <input type="range" id="metaPct" min="0" max="100" step="1" value="${metaPct}" style="width:130px;accent-color:var(--amber)">
+          <input type="number" id="metaPctN" min="0" max="100" value="${metaPct}" style="width:58px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:5px 8px;text-align:right;font-weight:700">
+          <span style="color:var(--sub);font-size:12.5px">%</span>
+          <span class="msg" id="metaMsg" style="font-size:12px"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:8px">
+          <span>Facturado <b>entregado</b>: <b style="color:var(--green)">${usd(act)}</b></span>
+          <span>Meta total: <b style="color:var(--purple)">${usd(meta)}</b></span>
+        </div>
+        <div style="background:var(--bg3);border-radius:9px;height:28px;position:relative;overflow:visible;margin-bottom:26px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,p*100).toFixed(1)}%;background:linear-gradient(90deg,var(--purple2),var(--green));border-radius:9px;transition:.3s"></div>
+          <div id="metaLineLbl" style="position:absolute;left:${metaPct}%;top:-17px;transform:translateX(-50%);font-size:10px;color:var(--amber);font-weight:800;white-space:nowrap">meta ${metaPct}%</div>
+          <div id="metaLine" style="position:absolute;left:${metaPct}%;top:-4px;bottom:-4px;width:3px;background:var(--amber);border-radius:2px;box-shadow:0 0 5px rgba(0,0,0,.6)"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px">${pct(p)} de la facturación total</div>
+          <div id="metaTargetVal" style="position:absolute;left:${metaPct}%;top:33px;transform:translateX(-50%);font-size:11px;color:var(--amber);font-weight:800;white-space:nowrap">${usd(target)}</div>
+        </div>
+        <div id="metaStatus" style="font-size:12.5px;margin-top:6px;color:${logrado?'var(--green)':'var(--sub)'}">${logrado? '✅ ¡Superaste la meta mínima! Estamos súper bien.' : ('Faltan <b style="color:var(--amber)">'+usd(falta)+'</b> para la meta.')}</div>
+      </div>`; })()}
     <div class="cards">
       ${tile('Facturación',usd(m.facturacion),'grn')}
       ${tile('Facturación entregada',usd(m.factEnt),'grn','valor producto × entregados')}
@@ -400,28 +424,7 @@ function renderDashboard(){
       ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
       ${tile('Inversión',usd(m.inv),'pur')}
     </div>
-    <div class="sec-h">🎯 Meta: facturar entregado = facturación total</div>
-    ${(function(){ var meta=m.facturacion, act=m.factEnt, p=meta?act/meta:0, target=meta*metaPct/100, falta=Math.max(0,target-act), logrado=act>=target&&target>0;
-      return `<div class="chartcard">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-          <span style="font-size:12.5px;color:var(--sub);font-weight:700">🎯 Meta mínima</span>
-          <input type="range" id="metaPct" min="0" max="100" step="1" value="${metaPct}" style="width:130px;accent-color:var(--amber)">
-          <input type="number" id="metaPctN" min="0" max="100" value="${metaPct}" style="width:58px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:5px 8px;text-align:right;font-weight:700">
-          <span style="color:var(--sub);font-size:12.5px">% = <b id="metaTargetVal" style="color:var(--amber)">${usd(target)}</b></span>
-          <span class="msg" id="metaMsg" style="font-size:12px"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:8px">
-          <span>Facturado <b>entregado</b>: <b style="color:var(--green)">${usd(act)}</b></span>
-          <span>Meta total: <b style="color:var(--purple)">${usd(meta)}</b></span>
-        </div>
-        <div style="background:var(--bg3);border-radius:9px;height:28px;position:relative;overflow:visible">
-          <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,p*100).toFixed(1)}%;background:linear-gradient(90deg,var(--purple2),var(--green));border-radius:9px;transition:.3s"></div>
-          <div id="metaLineLbl" style="position:absolute;left:${metaPct}%;top:-17px;transform:translateX(-50%);font-size:10px;color:var(--amber);font-weight:800;white-space:nowrap">meta ${metaPct}%</div>
-          <div id="metaLine" style="position:absolute;left:${metaPct}%;top:-4px;bottom:-4px;width:3px;background:var(--amber);border-radius:2px;box-shadow:0 0 5px rgba(0,0,0,.6)"></div>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px">${pct(p)} de la facturación total</div>
-        </div>
-        <div id="metaStatus" style="font-size:12.5px;margin-top:12px;color:${logrado?'var(--green)':'var(--sub)'}">${logrado? '✅ ¡Superaste la meta mínima ('+metaPct+'%)! Estamos súper bien.' : ('Faltan <b style="color:var(--amber)">'+usd(falta)+'</b> para la meta mínima ('+metaPct+'% = '+usd(target)+').')}</div>
-      </div>`; })()}
+    <div class="secdiv"></div>
     <div class="sec-h">Embudo de pedidos</div>
     <div class="cards">
       ${tile('Generados',m.gen,'')}
@@ -464,8 +467,8 @@ function renderDashboard(){
     var upd=function(v){ v=Math.max(0,Math.min(100,Math.round(+v||0))); rng.value=v; numi.value=v;
       var target=meta*v/100, logrado=act>=target&&target>0, falta=Math.max(0,target-act);
       if(line) line.style.left=v+'%'; if(lbl){ lbl.style.left=v+'%'; lbl.textContent='meta '+v+'%'; }
-      if(tval) tval.textContent=usd(target);
-      if(st){ st.style.color=logrado?'var(--green)':'var(--sub)'; st.innerHTML=logrado? '✅ ¡Superaste la meta mínima ('+v+'%)! Estamos súper bien.' : ('Faltan <b style="color:var(--amber)">'+usd(falta)+'</b> para la meta mínima ('+v+'% = '+usd(target)+').'); } };
+      if(tval){ tval.style.left=v+'%'; tval.textContent=usd(target); }
+      if(st){ st.style.color=logrado?'var(--green)':'var(--sub)'; st.innerHTML=logrado? '✅ ¡Superaste la meta mínima! Estamos súper bien.' : ('Faltan <b style="color:var(--amber)">'+usd(falta)+'</b> para la meta.'); } };
     var save=function(v){ CFG.metaPct=v; fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({metaPct:v})}).then(function(r){return r.json();}).then(function(c){CFG=c; if(msg){msg.className='msg ok';msg.textContent='✓ Guardado';setTimeout(function(){msg.textContent='';},1400);} },function(){}); };
     rng.addEventListener('input',function(){ upd(this.value); });
     numi.addEventListener('input',function(){ upd(this.value); });
