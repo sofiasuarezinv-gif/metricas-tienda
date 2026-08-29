@@ -109,26 +109,29 @@ function parseMeta(buffer) {
   if (rows.length < 2) return [];
   const hdr = rows[0].map(norm);
   const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
-  let fechaCol = find('DIA', 'DAY', 'FECHA', 'DATE');
-  const spendCol = find('IMPORTE GASTADO', 'AMOUNT SPENT', 'GASTADO', 'GASTO', 'SPEND', 'INVERSION');
-  const ventasCol = find('COMPRAS EN EL SITIO WEB', 'WEBSITE PURCHASES', 'COMPRAS', 'PURCHASES', 'RESULTADOS', 'RESULTS', 'VENTAS');
-  const facCol = find('VALOR DE CONVERSION DE COMPRAS', 'PURCHASES CONVERSION VALUE', 'VALOR DE CONVERSION', 'CONVERSION VALUE', 'VALOR DE CONVERSIONES');
-  // Respaldo: si no se detectó por nombre (acentos corruptos, etc.), elegir la columna con más fechas válidas
-  if (fechaCol < 0) {
-    let best = -1, bestN = 0;
-    for (let c = 0; c < hdr.length; c++) {
-      let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++;
-      if (n > bestN) { bestN = n; best = c; }
-    }
-    fechaCol = best;
+  // findEq: coincidencia por palabra completa (evita que "Compras" agarre "Valor de conversión de las compras…")
+  const findEq = (...keys) => { for (const k of keys) { const nk = norm(k); const i = hdr.findIndex(h => h === nk || h.indexOf(nk + ' ') === 0 || h.indexOf(nk + '(') === 0); if (i >= 0) return i; } return -1; };
+  const spendCol = find('IMPORTE GASTADO', 'AMOUNT SPENT', 'GASTADO', 'SPEND');
+  const ventasCol = findEq('RESULTADOS', 'COMPRAS', 'WEBSITE PURCHASES', 'PURCHASES', 'RESULTS'); // "Resultados"/"Compras" exacto
+  const facCol = find('VALOR DE CONVERSION', 'PURCHASES CONVERSION VALUE', 'CONVERSION VALUE');
+  const dayCol = find('DIA', 'DAY'); // columna de DÍA de entrega (solo en reportes con desglose por día)
+  const rd = (r) => ({ inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0, facturacion: facCol >= 0 ? numv(r[facCol]) : 0 });
+  // ── Modo por DÍA ──
+  if (dayCol >= 0) {
+    const out = [];
+    for (let i = 1; i < rows.length; i++) { const fecha = cellToDate(rows[i][dayCol]); if (fecha) out.push(Object.assign({ fecha }, rd(rows[i]))); }
+    if (out.length) return out;
   }
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : '');
-    if (!fecha) continue;
-    out.push({ fecha, inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0, facturacion: facCol >= 0 ? numv(r[facCol]) : 0 });
-  }
-  return out;
+  // ── Modo RESUMEN por periodo (reporte por campaña, sin desglose diario): sumar todo y atribuir al FIN del informe ──
+  let inv = 0, ven = 0, fac = 0;
+  for (let i = 1; i < rows.length; i++) { const v = rd(rows[i]); inv += v.inversion; ven += v.ventas_meta; fac += v.facturacion; }
+  const endCol = find('FIN DEL INFORME', 'REPORT END', 'FIN INFORME', 'FECHA FIN', 'HASTA');
+  const startCol = find('INICIO DEL INFORME', 'REPORT START', 'INICIO INFORME', 'FECHA INICIO', 'DESDE');
+  let fecha = '';
+  for (let i = 1; i < rows.length && !fecha; i++) if (endCol >= 0) fecha = cellToDate(rows[i][endCol]);
+  for (let i = 1; i < rows.length && !fecha; i++) if (startCol >= 0) fecha = cellToDate(rows[i][startCol]);
+  if (!fecha) return [];
+  return [{ fecha, inversion: inv, ventas_meta: ven, facturacion: fac }];
 }
 async function importMeta(buffer) {
   const parsed = parseMeta(buffer);

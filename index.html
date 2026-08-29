@@ -40,6 +40,8 @@
   .filters select{background:var(--bg2);border:1px solid var(--line);color:var(--ink);padding:8px 10px;border-radius:9px;font:600 12.5px "Inter"}
 
   .sec-h{font-size:13px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.06em;margin:26px 0 12px}
+  .upstat{font-size:11px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--sub);background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;margin-left:8px;white-space:nowrap}
+  .upstat.ok{color:var(--green);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.08)}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
   .stat{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative}
   .stat .k{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;display:flex;gap:6px;align-items:center}
@@ -163,7 +165,7 @@
     <div id="view-subir" style="display:none">
       <h2 class="title">⬆️ Subir reportes</h2>
       <p class="muted">Subí el Excel de Dropi y el reporte de Meta. Se guardan para siempre; los pedidos de Dropi se <b>de-duplican por ID</b> (re-subir actualiza estado, no duplica).</p>
-      <div class="sec-h">Reporte de Dropi</div>
+      <div class="sec-h">Reporte de Dropi <span class="upstat" id="stat-dropi"></span></div>
       <div class="panel" style="margin-bottom:22px">
         <div class="drop" id="drop" onclick="document.getElementById('file').click()">
           <div style="font-size:30px">📄</div><div>Tocá para elegir el Excel de Dropi (.xlsx)</div>
@@ -171,7 +173,7 @@
         <input type="file" id="file" accept=".xlsx,.xls" style="display:none" onchange="subir(event)">
         <div class="msg" id="up-msg"></div>
       </div>
-      <div class="sec-h">Reporte de Meta (Facebook)</div>
+      <div class="sec-h">Reporte de Meta (Facebook) <span class="upstat" id="stat-meta"></span></div>
       <div class="panel">
         <p class="muted" style="margin-top:0">Exportá de Meta Ads el desglose <b>por día</b> (.xlsx o .csv) con las columnas de <b>día</b>, <b>importe gastado</b> y <b>compras/resultados</b>. Se cargan la <b>inversión por día</b> y las <b>ventas de Meta</b> (todo editable después en Diario).</p>
         <div class="drop" onclick="document.getElementById('file-meta').click()">
@@ -180,7 +182,7 @@
         <input type="file" id="file-meta" accept=".xlsx,.xls,.csv" style="display:none" onchange="subirMeta(event)">
         <div class="msg" id="up-meta-msg"></div>
       </div>
-      <div class="sec-h">Reporte de Shopify</div>
+      <div class="sec-h">Reporte de Shopify <span class="upstat" id="stat-shopify"></span></div>
       <div class="panel">
         <p class="muted" style="margin-top:0">Exportá de Shopify tus <b>pedidos</b> (.csv o .xlsx). Se cuentan los pedidos por día como <b>Ventas Shopify</b> (editable después en Diario). Detecta la fecha ("Created at"/"Fecha") y el número de pedido automáticamente.</p>
         <div class="drop" onclick="document.getElementById('file-shopify').click()">
@@ -713,6 +715,18 @@ function renderInvList(){
     : `<p class="muted">Todavía no cargaste inversión.</p>`;
 }
 
+// ─── Indicadores de reportes subidos (en la página Subir) ───
+function fmtRange(days){ if(!days.length) return ''; const s=days.slice().sort(); return s.length===1? s[0] : (s[0]+' → '+s[s.length-1]); }
+function renderSubirStatus(){
+  const sd=$('#stat-dropi'), sm=$('#stat-meta'), ss=$('#stat-shopify');
+  if(sd){ if(ORDERS.length){ sd.className='upstat ok'; sd.textContent='✓ '+ORDERS.length.toLocaleString('es-CO')+' pedidos guardados'; } else { sd.className='upstat'; sd.textContent='Sin subir aún'; } }
+  const metaDays=Object.keys(DAILY).filter(d=>DAILY[d].ventas_meta!==undefined||DAILY[d].facturacion_meta!==undefined);
+  const invDays=Object.keys(INV);
+  if(sm){ if(metaDays.length||invDays.length){ sm.className='upstat ok'; sm.textContent='✓ Meta: '+(invDays.length||metaDays.length)+' día(s) '+(fmtRange(metaDays.length?metaDays:invDays)); } else { sm.className='upstat'; sm.textContent='Sin subir aún'; } }
+  const shopDays=Object.keys(DAILY).filter(d=>DAILY[d].ventas_shopify!==undefined);
+  if(ss){ if(shopDays.length){ ss.className='upstat ok'; ss.textContent='✓ Shopify: '+shopDays.length+' día(s) '+fmtRange(shopDays); } else { ss.className='upstat'; ss.textContent='Sin subir aún'; } }
+}
+
 // ─── Navegación ───
 let CURRENT='dashboard';
 const VIEWS=['dashboard','diario','transp','oficina','ciudades','inversion','subir'];
@@ -720,6 +734,7 @@ function go(v){
   CURRENT=v;
   VIEWS.forEach(k=>{ $('#view-'+k).style.display = k===v?'':'none'; $('#nav-'+k).classList.toggle('active',k===v); });
   $('#rangebar').style.display = ['dashboard','diario','transp','oficina','ciudades'].includes(v)?'':'none';
+  if(v==='subir') renderSubirStatus();
   renderCurrent();
 }
 function renderCurrent(){
@@ -739,6 +754,7 @@ async function load(){
   try{ DAILY=await (await fetch('/api/daily')).json(); }catch(e){ DAILY={}; }
   const meses=[...new Set(ORDERS.filter(o=>o.fecha).map(o=>o.fecha.slice(0,7)))].sort().reverse();
   $('#mes-sel').innerHTML='<option value="">Elegir mes…</option>'+meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+  renderSubirStatus();
   renderCurrent();
 }
 async function guardarInv(){
