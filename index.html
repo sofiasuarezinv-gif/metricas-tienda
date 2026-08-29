@@ -337,11 +337,13 @@ function dailySeries(){
     const noCanc=list.filter(o=>o.estado!=='CANCELADO');
     const costoProd=noCanc.reduce((s,o)=>s+(o.proveedor||0),0);
     const costoTransp=noCanc.reduce((s,o)=>s+(o.flete||0),0);
-    return {d, inv, ventasMeta, prelim, ventasDropi, cancel, desp, ent, dev, fac, costoProd, costoTransp,
+    const costoDev=list.filter(o=>o.estado==='DEVOLUCION').reduce((s,o)=>s+(o.dev_flete||0),0); // costo devolución (flete de retorno)
+    const gan=fac-inv-costoProd-costoTransp-costoDev;
+    return {d, inv, ventasMeta, prelim, ventasDropi, cancel, desp, ent, dev, fac, costoProd, costoTransp, costoDev,
       cpaMeta:ventasMeta?inv/ventasMeta:0, cpaDropi:ventasDropi?inv/ventasDropi:0,
       cpaDesp:desp?inv/desp:0, cpaEnt:ent?inv/ent:0, roas:inv?fac/inv:0,
-      ganancia: fac-inv-costoProd-costoTransp,   // Ganancia = facturación − inversión − costo producto − costo transportadoras
-      roi: inv ? (fac-inv-costoProd-costoTransp)/inv : 0,   // ROI = ganancia ÷ inversión
+      ganancia: gan,   // Ganancia = facturación − inversión − costo producto − costo transportadoras − costo devolución
+      roi: inv ? gan/inv : 0,   // ROI = ganancia ÷ inversión
       // valores por defecto (para el placeholder y para saber si hay override)
       base:{inversion:+INV[d]||0, ventas_dropi:f.gen, cancelados:f.canc, despachados:(f.gen-f.canc), entregados:f.ent, devoluciones:f.dev, facturacion:facBase}, ov};
   });
@@ -399,43 +401,43 @@ function renderDiario(){
   const ed=(d,f,v)=>{ const isov=(DAILY[d]||{})[f]!==undefined; return `<td><input class="dcell${isov?' ov':''}" data-d="${d}" data-f="${f}" value="${v}" inputmode="numeric" onchange="saveDaily(this)"></td>`; };
   const cpa=(v,base)=>`<td class="num cpa">${base?usd(v):'—'}</td>`;
   html+=`<div class="tablewrap"><table><thead><tr>
-    <th>Fecha</th><th>Inversión</th>
-    <th class="g-meta">V. Meta</th><th class="g-meta">CPA Meta</th>
+    <th>Fecha</th><th>Inversión</th><th>Facturación</th>
+    <th class="g-meta">V. Meta</th><th class="g-meta">CPA Meta</th><th class="g-meta">ROAS</th>
     <th>Prelim.</th>
-    <th class="g-dropi">V. Dropi</th><th class="g-dropi">CPA Dropi</th>
+    <th class="g-dropi">V. Dropi</th><th class="g-dropi">CPA Dropi</th><th class="g-dropi">ROAS</th>
     <th style="color:var(--red)">Cancel.</th>
-    <th class="g-desp">Despach.</th><th class="g-desp">CPA Desp</th>
+    <th class="g-desp">Despach.</th><th class="g-desp">CPA Desp</th><th class="g-desp">ROAS</th>
     <th style="color:var(--red)">Devol.</th>
-    <th>Facturación</th><th>ROAS</th>
-    <th style="color:var(--red)">Costo prod.</th><th style="color:var(--red)">Costo transp.</th>
+    <th style="color:var(--red)">Costo prod.</th><th style="color:var(--red)">Costo transp.</th><th style="color:var(--red)">Costo devol.</th>
     <th class="g-ent">Ganancia</th><th class="g-ent">ROI</th>
   </tr></thead><tbody>`;
-  rows.forEach(r=>{ html+=`<tr>
-    <td>${r.d}</td>${ed(r.d,'inversion',r.inv)}
-    ${ed(r.d,'ventas_meta',r.ventasMeta)}${cpa(r.cpaMeta,r.ventasMeta)}
+  rows.forEach(r=>{ const roasC=`<td class="num">${r.inv?dec(r.roas)+'×':'—'}</td>`; html+=`<tr>
+    <td>${r.d}</td>${ed(r.d,'inversion',r.inv)}<td class="num">${usd(r.fac)}</td>
+    ${ed(r.d,'ventas_meta',r.ventasMeta)}${cpa(r.cpaMeta,r.ventasMeta)}${roasC}
     ${ed(r.d,'preliminares',r.prelim)}
-    ${ed(r.d,'ventas_dropi',r.ventasDropi)}${cpa(r.cpaDropi,r.ventasDropi)}
+    ${ed(r.d,'ventas_dropi',r.ventasDropi)}${cpa(r.cpaDropi,r.ventasDropi)}${roasC}
     ${ed(r.d,'cancelados',r.cancel)}
-    ${ed(r.d,'despachados',r.desp)}${cpa(r.cpaDesp,r.desp)}
+    ${ed(r.d,'despachados',r.desp)}${cpa(r.cpaDesp,r.desp)}${roasC}
     ${ed(r.d,'devoluciones',r.dev)}
-    <td class="num">${usd(r.fac)}</td><td class="num">${r.inv?dec(r.roas)+'×':'—'}</td>
     <td class="num" style="color:var(--red)">${usd(r.costoProd)}</td>
     <td class="num" style="color:var(--red)">${usd(r.costoTransp)}</td>
+    <td class="num" style="color:var(--red)">${usd(r.costoDev)}</td>
     <td class="num" style="color:${r.ganancia>=0?'var(--green)':'var(--red)'};font-weight:700">${usd(r.ganancia)}</td>
     <td class="num" style="color:${r.roi>=0?'var(--green)':'var(--red)'}">${r.inv?dec(r.roi,2):'—'}</td>
   </tr>`; });
   // Totales
-  const T=rows.reduce((a,r)=>{['inv','ventasMeta','prelim','ventasDropi','cancel','desp','dev','fac','costoProd','costoTransp','ganancia'].forEach(k=>a[k]=(a[k]||0)+r[k]);return a;},{});
-  html+=`<tr class="totals"><td>TOTAL</td><td class="num">${usd(T.inv)}</td>
-    <td class="num">${T.ventasMeta}</td><td class="num cpa">${T.ventasMeta?usd(T.inv/T.ventasMeta):'—'}</td>
+  const T=rows.reduce((a,r)=>{['inv','fac','ventasMeta','prelim','ventasDropi','cancel','desp','dev','costoProd','costoTransp','costoDev','ganancia'].forEach(k=>a[k]=(a[k]||0)+r[k]);return a;},{});
+  const troas=T.inv?dec(T.fac/T.inv)+'×':'—';
+  html+=`<tr class="totals"><td>TOTAL</td><td class="num">${usd(T.inv)}</td><td class="num">${usd(T.fac)}</td>
+    <td class="num">${T.ventasMeta}</td><td class="num cpa">${T.ventasMeta?usd(T.inv/T.ventasMeta):'—'}</td><td class="num">${troas}</td>
     <td class="num">${T.prelim}</td>
-    <td class="num">${T.ventasDropi}</td><td class="num cpa">${T.ventasDropi?usd(T.inv/T.ventasDropi):'—'}</td>
+    <td class="num">${T.ventasDropi}</td><td class="num cpa">${T.ventasDropi?usd(T.inv/T.ventasDropi):'—'}</td><td class="num">${troas}</td>
     <td class="num">${T.cancel}</td>
-    <td class="num">${T.desp}</td><td class="num cpa">${T.desp?usd(T.inv/T.desp):'—'}</td>
+    <td class="num">${T.desp}</td><td class="num cpa">${T.desp?usd(T.inv/T.desp):'—'}</td><td class="num">${troas}</td>
     <td class="num">${T.dev}</td>
-    <td class="num">${usd(T.fac)}</td><td class="num">${T.inv?dec(T.fac/T.inv)+'×':'—'}</td>
     <td class="num" style="color:var(--red)">${usd(T.costoProd)}</td>
     <td class="num" style="color:var(--red)">${usd(T.costoTransp)}</td>
+    <td class="num" style="color:var(--red)">${usd(T.costoDev)}</td>
     <td class="num" style="color:${T.ganancia>=0?'var(--green)':'var(--red)'}">${usd(T.ganancia)}</td>
     <td class="num" style="color:${(T.inv?T.ganancia/T.inv:0)>=0?'var(--green)':'var(--red)'}">${T.inv?dec(T.ganancia/T.inv,2):'—'}</td></tr>`;
   html+=`</tbody></table></div>`;
