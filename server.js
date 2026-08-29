@@ -144,6 +144,35 @@ async function importMeta(buffer) {
   return { dias: Object.keys(byDay).length, total: parsed.length };
 }
 
+// ─────────── Parseo del reporte de Shopify (pedidos por día) ───────────
+function parseShopify(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer', raw: false, codepage: 65001 });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 2) return {};
+  const hdr = rows[0].map(norm);
+  const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
+  let fechaCol = find('CREATED AT', 'FECHA DE CREACION', 'PAID AT', 'FECHA', 'DIA', 'DAY', 'DATE');
+  const nameCol = find('NAME', 'NUMERO DE PEDIDO', 'ORDER NAME', 'PEDIDO', 'ORDER', 'NUMBER');
+  const countCol = find('PEDIDOS', 'ORDERS', 'ORDER COUNT', 'TOTAL ORDERS', 'CANTIDAD DE PEDIDOS');
+  if (fechaCol < 0) { let best = -1, bestN = 0; for (let c = 0; c < hdr.length; c++) { let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++; if (n > bestN) { bestN = n; best = c; } } fechaCol = best; }
+  const byDay = {}, seen = {};
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : ''); if (!fecha) continue;
+    if (countCol >= 0) { byDay[fecha] = (byDay[fecha] || 0) + numv(r[countCol]); }
+    else if (nameCol >= 0) { const nm = String(r[nameCol] || '').trim(); if (nm) { const k = fecha + '|' + nm; if (!seen[k]) { seen[k] = 1; byDay[fecha] = (byDay[fecha] || 0) + 1; } } }
+    else { byDay[fecha] = (byDay[fecha] || 0) + 1; }
+  }
+  return byDay;
+}
+async function importShopify(buffer) {
+  const byDay = parseShopify(buffer);
+  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
+  Object.entries(byDay).forEach(([d, v]) => { const cur = daily[d] || {}; cur.ventas_shopify = v; daily[d] = cur; });
+  await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'shopify: ventas');
+  return { dias: Object.keys(byDay).length };
+}
+
 async function importOrders(buffer) {
   const parsed = parseDropi(buffer);
   const byMonth = {};
@@ -188,6 +217,12 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
       const result = await importMeta(Buffer.from(body.file, 'base64'));
+      return sendJson(res, 200, result);
+    }
+    if (url === '/api/upload-shopify' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
+      const result = await importShopify(Buffer.from(body.file, 'base64'));
       return sendJson(res, 200, result);
     }
     if (url === '/api/daily' && req.method === 'GET') return sendJson(res, 200, await getDaily());

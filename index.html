@@ -180,6 +180,15 @@
         <input type="file" id="file-meta" accept=".xlsx,.xls,.csv" style="display:none" onchange="subirMeta(event)">
         <div class="msg" id="up-meta-msg"></div>
       </div>
+      <div class="sec-h">Reporte de Shopify</div>
+      <div class="panel">
+        <p class="muted" style="margin-top:0">Exportá de Shopify tus <b>pedidos</b> (.csv o .xlsx). Se cuentan los pedidos por día como <b>Ventas Shopify</b> (editable después en Diario). Detecta la fecha ("Created at"/"Fecha") y el número de pedido automáticamente.</p>
+        <div class="drop" onclick="document.getElementById('file-shopify').click()">
+          <div style="font-size:30px">🛒</div><div>Tocá para elegir el reporte de Shopify (.csv / .xlsx)</div>
+        </div>
+        <input type="file" id="file-shopify" accept=".xlsx,.xls,.csv" style="display:none" onchange="subirShopify(event)">
+        <div class="msg" id="up-shopify-msg"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -246,17 +255,22 @@ function metrics(){
   const facturacion=sum(os,'venta'), factEnt=sum(ent,'venta'), ganancia=sum(ent,'ganancia');
   const flete=sum(os,'flete'), proveedor=sum(ent,'proveedor');
   const costoDev=dev.reduce((s,o)=>s+(o.flete||0)+(o.dev_flete||0),0);
+  // costos para la ganancia promedio: transportadoras (flete de despachados) y devoluciones (flete de retorno)
+  const noCancel=os.filter(o=>o.estado!=='CANCELADO');
+  const costoTransp=noCancel.reduce((s,o)=>s+(o.flete||0),0);
+  const costoDevRet=dev.reduce((s,o)=>s+(o.dev_flete||0),0);
   let inv=0; Object.entries(INV).forEach(([d,m])=>{ if(d>=r.from&&d<=r.to) inv+=(+m||0); });
-  // overrides diarios (inversión editada + ventas de Meta + preliminares)
-  let ventasMeta=0, prelim=0, invOv=0;
+  // overrides diarios (inversión editada + ventas de Meta/Shopify + preliminares)
+  let ventasMeta=0, ventasShopify=0, prelim=0, invOv=0;
   Object.entries(DAILY).forEach(([d,o])=>{ if(d<r.from||d>r.to) return;
     if(o.ventas_meta!==undefined) ventasMeta+=(+o.ventas_meta||0);
+    if(o.ventas_shopify!==undefined) ventasShopify+=(+o.ventas_shopify||0);
     if(o.preliminares!==undefined) prelim+=(+o.preliminares||0);
     if(o.inversion!==undefined){ invOv+=(+o.inversion||0); inv-=(+INV[d]||0); } });
   inv+=invOv;
   const gananciaNeta=ganancia-inv;
-  return {os,...f, facturacion,factEnt,ganancia,flete,proveedor,costoDev,inv,gananciaNeta,ventasMeta,prelim,
-    cpaMeta:ventasMeta?inv/ventasMeta:0,
+  return {os,...f, facturacion,factEnt,ganancia,flete,proveedor,costoDev,costoTransp,costoDevRet,inv,gananciaNeta,ventasMeta,ventasShopify,prelim,
+    cpaMeta:ventasMeta?inv/ventasMeta:0, cpaShopify:ventasShopify?inv/ventasShopify:0,
     cpa1:f.gen?inv/f.gen:0, cpa2:f.desp?inv/f.desp:0, cpa3:f.ent?inv/f.ent:0,
     roas1:inv?facturacion/inv:0, roas2:inv?factEnt/inv:0, roi:inv?gananciaNeta/inv:0, label:r.label};
 }
@@ -267,20 +281,34 @@ function renderDashboard(){
   const m=metrics();
   const rates=[['Entrega',m.pEnt],['Devolución',m.pDev],['Cancelación',m.pCanc],['Despacho',m.pDesp]];
   const maxRate=Math.max(...rates.map(r=>r[1]));
+  const ef=(CFG.efectividad!=null?CFG.efectividad:75);
+  const ganProm=fn=>m.facturacion*(fn/100)-m.costoTransp-m.costoDevRet-m.inv;
+  const gp=ganProm(ef);
+  const ganCard=`<div class="stat ${gp>=0?'grn':'red'}"><div class="k">📈 Ganancia promedio</div><div class="v" id="ganPromVal">${usd(gp)}</div><div class="s" id="ganPromSub">facturación×${ef}% − transp − devol − inversión</div></div>`;
   $('#view-dashboard').innerHTML=`
     <h2 class="title">📊 Dashboard</h2>
     <p class="muted">${m.label} · ${m.gen} pedidos</p>
     <div class="sec-h">Meta / Facebook</div>
     <div class="cards">
       ${tile('💰 Inversión',usd(m.inv),'pur')}
+      ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
+      ${ganCard}
       ${tile('🛍️ Ventas Meta',m.ventasMeta,'cyan','compras reportadas por Meta')}
       ${tile('🎯 CPA Meta',m.ventasMeta?usd(m.cpaMeta):'—','','inversión ÷ ventas Meta')}
+      ${tile('🛒 Ventas Shopify',m.ventasShopify,'cyan','pedidos en Shopify')}
+      ${tile('🎯 CPA Shopify',m.ventasShopify?usd(m.cpaShopify):'—','','inversión ÷ ventas Shopify')}
+      ${tile('📝 Preliminares',m.prelim,'','checkouts sin terminar (Shopify)')}
       ${tile('📦 Ventas Dropi',m.gen,'','pedidos generados en Dropi')}
       ${tile('🎯 CPA Dropi',usd(m.cpa1),'','inversión ÷ ventas Dropi')}
-      ${tile('📝 Preliminares',m.prelim,'','checkouts sin terminar (Shopify)')}
-      ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
       ${tile('🚀 ROAS',dec(m.roas1)+'×','amb','facturación ÷ inversión')}
       ${tile('📊 % CPA',m.facturacion?pct(m.inv/m.facturacion):'—','','inversión ÷ facturación')}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 2px 0;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 16px">
+      <span style="font-size:12.5px;color:var(--sub);font-weight:700">⚖️ % que se entrega (para la ganancia promedio)</span>
+      <input type="range" id="ganPct" min="0" max="100" step="1" value="${ef}" style="flex:1;min-width:150px;accent-color:var(--purple2)">
+      <input type="number" id="ganPctN" min="0" max="100" value="${ef}" style="width:64px;background:var(--bg3);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 8px;text-align:right;font-weight:700">
+      <span style="color:var(--sub)">%</span>
+      <span class="msg" id="ganMsg" style="font-size:12px"></span>
     </div>
     <div class="sec-h">Embudo de pedidos</div>
     <div class="cards">
@@ -311,6 +339,20 @@ function renderDashboard(){
       ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
       ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
     </div>`;
+  // Slider de la ganancia promedio (usa la misma efectividad que la proyección del Diario)
+  (function(){
+    var rng=$('#ganPct'), numi=$('#ganPctN'), val=$('#ganPromVal'), sub=$('#ganPromSub'), msg=$('#ganMsg');
+    if(!rng) return;
+    var upd=function(v){ v=Math.max(0,Math.min(100,Math.round(+v||0))); rng.value=v; numi.value=v;
+      var g=ganProm(v);
+      if(val){ val.textContent=usd(g); val.parentNode.classList.remove('grn','red'); val.parentNode.classList.add(g>=0?'grn':'red'); }
+      if(sub) sub.textContent='facturación×'+v+'% − transp − devol − inversión'; };
+    var saveEf=function(v){ CFG.efectividad=v; fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({efectividad:v})}).then(function(r){return r.json();}).then(function(c){CFG=c; if(msg){msg.className='msg ok';msg.textContent='✓ Guardado';setTimeout(function(){msg.textContent='';},1400);} },function(){}); };
+    rng.addEventListener('input',function(){ upd(this.value); });
+    numi.addEventListener('input',function(){ upd(this.value); });
+    rng.addEventListener('change',function(){ saveEf(Math.round(+this.value)); });
+    numi.addEventListener('change',function(){ saveEf(Math.round(+this.value)); });
+  })();
 }
 
 // ─── Diario ───
@@ -696,6 +738,20 @@ async function subirMeta(ev){
     await load();
     msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.dias} días cargados (inversión + ventas de Meta). Revisalos/editalos en Diario.`;
     toast('✓ Reporte de Meta cargado');
+  }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
+  ev.target.value='';
+}
+async function subirShopify(ev){
+  const file=ev.target.files[0]; if(!file) return;
+  const msg=$('#up-shopify-msg'); msg.className='msg'; msg.textContent='Procesando "'+file.name+'"…';
+  try{
+    const b64=toBase64(await file.arrayBuffer());
+    const r=await fetch('/api/upload-shopify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:b64})});
+    const res=await r.json();
+    if(!r.ok) throw new Error(res.detail||res.error||'error');
+    await load();
+    msg.className='msg ok'; msg.textContent=`✓ Listo: ${res.dias} días con ventas de Shopify cargadas.`;
+    toast('✓ Reporte de Shopify cargado');
   }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
   ev.target.value='';
 }
