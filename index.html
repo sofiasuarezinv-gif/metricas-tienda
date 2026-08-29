@@ -68,6 +68,7 @@
   .rentgroup.green{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.35)}
   .rentgroup.green .rentgroup-h{color:var(--green)}
   .secdiv{height:0;border-top:2px dashed var(--line);margin:34px 0 4px;opacity:.7}
+  .maintitle{font-size:16.5px;font-weight:800;color:var(--ink);margin:38px 0 14px;padding:12px 16px;background:linear-gradient(90deg,rgba(124,92,255,.16),transparent 70%);border-left:4px solid var(--purple2);border-radius:11px;display:flex;align-items:center;gap:9px}
 
   table{width:100%;border-collapse:collapse;font-size:13px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--dim);white-space:nowrap}
@@ -328,7 +329,7 @@ function renderDashboard(){
   $('#view-dashboard').innerHTML=`
     <h2 class="title">📊 Dashboard</h2>
     <p class="muted">${m.label} · ${m.gen} pedidos</p>
-    <div class="sec-h">Métricas principales</div>
+    <div class="maintitle" style="margin-top:8px">📊 Métricas principales</div>
     <div class="cards">
       ${tile('💰 Inversión',usd(m.inv),'pur')}
       ${tile('🧾 Facturación',usd(m.facturacion),'grn')}
@@ -370,8 +371,7 @@ function renderDashboard(){
       ${tile('🧾 Facturación',usd(m.facturacion),'grn','ventas que entraron a Dropi')}
       ${tile('🚀 ROAS',roasOf(m.facturacion),'amb','facturación ÷ inversión')}
     </div>
-    <div class="secdiv"></div>
-    <div class="sec-h">Rentabilidad ($)</div>
+    <div class="maintitle">💵 Rentabilidad</div>
     ${(function(){ var meta=m.facturacion, act=m.factEnt, p=meta?act/meta:0, target=meta*metaPct/100, falta=Math.max(0,target-act), logrado=act>=target&&target>0;
       return `<div class="chartcard" style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
@@ -424,7 +424,7 @@ function renderDashboard(){
       ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
       ${tile('Inversión',usd(m.inv),'pur')}
     </div>
-    <div class="secdiv"></div>
+    <div class="maintitle">🚚 Métricas de Logística</div>
     <div class="sec-h">Embudo de pedidos</div>
     <div class="cards">
       ${tile('Generados',m.gen,'')}
