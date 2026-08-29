@@ -354,11 +354,11 @@ function renderDashboard(){
       ${tile('ROAS entregado',dec(m.roas2)+'×','amb','fact. entregada ÷ inversión')}
       ${tile('Ganancia neta',usd(m.gananciaNeta),m.gananciaNeta>=0?'grn':'red','ganancia − inversión')}
       ${tile('📈 ROI',pct(m.roi),m.roi>=0?'grn':'red','ganancia neta ÷ inversión')}
+      ${tile('% Ganancia neta (entregada)',pct(m.factEnt?m.gananciaNeta/m.factEnt:0),m.gananciaNeta>=0?'grn':'red','ganancia neta ÷ facturación entregada')}
     </div>
     <div class="cards" style="margin-top:12px">
-      ${tile('Ganancia entregados',usd(m.ganancia),'grn')}
-      ${tile('% Ganancia (fact.)',pct(m.facturacion?m.ganancia/m.facturacion:0),'','ganancia entregados ÷ facturación')}
-      ${tile('% Ganancia (entregada)',pct(m.factEnt?m.ganancia/m.factEnt:0),'','ganancia entregados ÷ fact. entregada')}
+      ${tile('Recolectado Dropi',usd(m.ganancia),'grn')}
+      ${tile('% Recolectado Dropi',pct(m.facturacion?m.ganancia/m.facturacion:0),'','recolectado ÷ facturación')}
       ${tile('Costo proveedor',usd(m.proveedorDesp),'red','despachados')}
       ${tile('Costo transportadoras',usd(m.costoTransp),'red','despachados')}
       ${tile('Costo devoluciones',usd(m.costoDev),'red','flete ida+vuelta')}
