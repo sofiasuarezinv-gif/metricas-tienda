@@ -55,6 +55,7 @@ async function getAllOrders() {
 }
 async function getInvestment() { const { obj } = await readJson(`${GH.base}/investment.json`); return obj || {}; }
 async function getConfig() { const { obj } = await readJson(`${GH.base}/config.json`); return obj || {}; }
+async function getDaily() { const { obj } = await readJson(`${GH.base}/daily.json`); return obj || {}; }
 
 // ─────────── Parseo del Excel de Dropi ───────────
 const norm = (s) => (s == null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
@@ -91,6 +92,56 @@ function parseDropi(buffer) {
     });
   }
   return out;
+}
+
+// ─────────── Parseo del reporte de Meta (Ads Manager, por día) ───────────
+// Convierte una celda (string, Date o serial de Excel) a YYYY-MM-DD
+function cellToDate(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date) return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  if (typeof v === 'number') { const dc = XLSX.SSF.parse_date_code(Math.round(v)); return (dc && dc.y) ? `${dc.y}-${String(dc.m).padStart(2, '0')}-${String(dc.d).padStart(2, '0')}` : ''; } // round: el .xx es corrimiento de zona horaria
+  return parseDate(v);
+}
+function parseMeta(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer', raw: false, codepage: 65001 }); // 65001 = UTF-8 (evita que "Día" se corrompa en CSV)
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 2) return [];
+  const hdr = rows[0].map(norm);
+  const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
+  let fechaCol = find('DIA', 'DAY', 'FECHA', 'DATE');
+  const spendCol = find('IMPORTE GASTADO', 'AMOUNT SPENT', 'GASTADO', 'GASTO', 'SPEND', 'INVERSION');
+  const ventasCol = find('COMPRAS EN EL SITIO WEB', 'WEBSITE PURCHASES', 'COMPRAS', 'PURCHASES', 'RESULTADOS', 'RESULTS', 'VENTAS');
+  // Respaldo: si no se detectó por nombre (acentos corruptos, etc.), elegir la columna con más fechas válidas
+  if (fechaCol < 0) {
+    let best = -1, bestN = 0;
+    for (let c = 0; c < hdr.length; c++) {
+      let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++;
+      if (n > bestN) { bestN = n; best = c; }
+    }
+    fechaCol = best;
+  }
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : '');
+    if (!fecha) continue;
+    out.push({ fecha, inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0 });
+  }
+  return out;
+}
+async function importMeta(buffer) {
+  const parsed = parseMeta(buffer);
+  const byDay = {};
+  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas_meta: 0 }; b.inversion += p.inversion; b.ventas_meta += p.ventas_meta; });
+  const invR = await readJson(`${GH.base}/investment.json`); const inv = invR.obj || {};
+  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj || {};
+  Object.entries(byDay).forEach(([d, v]) => {
+    inv[d] = Math.round(v.inversion);
+    const cur = daily[d] || {}; cur.ventas_meta = v.ventas_meta; daily[d] = cur;
+  });
+  await writeJson(`${GH.base}/investment.json`, inv, invR.sha, 'meta: inversión');
+  await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'meta: ventas');
+  return { dias: Object.keys(byDay).length, total: parsed.length };
 }
 
 async function importOrders(buffer) {
@@ -132,6 +183,26 @@ const server = http.createServer(async (req, res) => {
       if (body.fecha) { if (numv(body.monto) === 0) delete inv[body.fecha]; else inv[body.fecha] = numv(body.monto); }
       await writeJson(`${GH.base}/investment.json`, inv, sha, `investment ${body.fecha}`);
       return sendJson(res, 200, inv);
+    }
+    if (url === '/api/upload-meta' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
+      const result = await importMeta(Buffer.from(body.file, 'base64'));
+      return sendJson(res, 200, result);
+    }
+    if (url === '/api/daily' && req.method === 'GET') return sendJson(res, 200, await getDaily());
+    if (url === '/api/daily' && req.method === 'POST') {
+      const body = await readBody(req); // { fecha, field, value }  (value '' borra el override)
+      const { obj, sha } = await readJson(`${GH.base}/daily.json`);
+      const daily = obj || {};
+      if (body.fecha && body.field !== undefined) {
+        const cur = daily[body.fecha] || {};
+        if (body.value === '' || body.value == null) delete cur[body.field];
+        else cur[body.field] = numv(body.value);
+        if (Object.keys(cur).length) daily[body.fecha] = cur; else delete daily[body.fecha];
+      }
+      await writeJson(`${GH.base}/daily.json`, daily, sha, `daily ${body.fecha}`);
+      return sendJson(res, 200, daily);
     }
     if (url === '/api/config' && req.method === 'GET') return sendJson(res, 200, await getConfig());
     if (url === '/api/config' && req.method === 'POST') {
