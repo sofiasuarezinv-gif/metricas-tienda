@@ -1,10 +1,14 @@
-// Dashboard métricas de tienda — pedidos Dropi + inversión manual.
-// Guarda en TU repo de GitHub: data/orders/{YYYY-MM}.json (pedidos deduplicados por ID) y data/investment.json.
+// Dashboard métricas de tienda — pedidos Dropi + Meta Ads (conexión directa, sin subir reportes).
+// Los datos viven en TU repo de GitHub:
+//   data/orders/{YYYY-MM}.json   pedidos de Dropi (por ID, sincronizados desde la API de Dropi)
+//   data/meta_campaigns.json     inversión/compras/facturación de Meta por día y campaña
+//   data/sync.json               última sincronización de cada fuente
+//   data/config.json             configuración editable (fletes estimados, mapeo de productos, proyecciones)
 // Producción: GH_TOKEN + GH_REPO ("owner/repo"). Sin token usa archivos locales (pruebas).
+// Opcional: META_TOKEN + META_ACCOUNTS ("id1,id2") → el botón "Actualizar Meta" jala Meta en vivo desde el servidor.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const XLSX = require('xlsx');
 
 const PORT = process.env.PORT || 4000;
 const GH = {
@@ -14,17 +18,23 @@ const GH = {
   base: (process.env.GH_DIR || 'data').replace(/\/+$/, ''),
 };
 const useGH = !!(GH.token && GH.repo);
-const OMIT = ['sofia prueba', 'sofia calder', 'prueba', 'jhon fredy marin bedoya'];
+const META = { token: process.env.META_TOKEN, accounts: (process.env.META_ACCOUNTS || '24279427948421869,1070491651938261').split(',').map(s => s.trim()).filter(Boolean) };
 
 // ─────────── GitHub ───────────
 const ghHeaders = () => ({ 'Authorization': 'Bearer ' + GH.token, 'Accept': 'application/vnd.github+json', 'User-Agent': 'metricas-tienda', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' });
+async function ghBlob(sha) {
+  const r = await fetch(`https://api.github.com/repos/${GH.repo}/git/blobs/${sha}`, { headers: ghHeaders() });
+  if (!r.ok) throw new Error(`GitHub blob ${sha} ${r.status}`);
+  return Buffer.from((await r.json()).content, 'base64').toString('utf8');
+}
 async function ghGet(repoPath) {
   const r = await fetch(`https://api.github.com/repos/${GH.repo}/contents/${repoPath}?ref=${GH.branch}`, { headers: ghHeaders() });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GitHub GET ${repoPath} ${r.status} ${await r.text()}`);
   const j = await r.json();
   if (Array.isArray(j)) return { dir: j };
-  return { obj: JSON.parse(Buffer.from(j.content, 'base64').toString('utf8')), sha: j.sha };
+  const txt = j.content ? Buffer.from(j.content, 'base64').toString('utf8') : await ghBlob(j.sha); // >1MB: la Contents API viene vacía
+  return { obj: JSON.parse(txt), sha: j.sha };
 }
 async function ghPut(repoPath, obj, sha, msg) {
   const body = { message: msg || ('update ' + repoPath), content: Buffer.from(JSON.stringify(obj)).toString('base64'), branch: GH.branch };
@@ -33,304 +43,95 @@ async function ghPut(repoPath, obj, sha, msg) {
   if (!r.ok) throw new Error(`GitHub PUT ${repoPath} ${r.status} ${await r.text()}`);
   return (await r.json()).content.sha;
 }
-const localPath = (p) => path.join(__dirname, p.replace(/\//g, '__'));
+const localPath = (p) => path.join(__dirname, p);
 
-// ─────────── Almacenamiento (orders por mes, investment) ───────────
+// ─────────── Almacenamiento (con caché corta para no gastar la API de GitHub) ───────────
+const CACHE = new Map(); const TTL = 60 * 1000;
 async function readJson(repoPath) {
-  if (useGH) { const g = await ghGet(repoPath); return g ? { obj: g.obj, sha: g.sha } : { obj: null, sha: null }; }
-  try { return { obj: JSON.parse(fs.readFileSync(localPath(repoPath), 'utf8')), sha: null }; } catch { return { obj: null, sha: null }; }
+  const c = CACHE.get(repoPath); if (c && Date.now() - c.t < TTL) return c.v;
+  let v;
+  if (useGH) { const g = await ghGet(repoPath); v = g ? { obj: g.obj, sha: g.sha } : { obj: null, sha: null }; }
+  else { try { v = { obj: JSON.parse(fs.readFileSync(localPath(repoPath), 'utf8')), sha: null }; } catch { v = { obj: null, sha: null }; } }
+  CACHE.set(repoPath, { t: Date.now(), v }); return v;
 }
 async function writeJson(repoPath, obj, sha, msg) {
+  CACHE.delete(repoPath);
   if (useGH) return ghPut(repoPath, obj, sha, msg);
+  fs.mkdirSync(path.dirname(localPath(repoPath)), { recursive: true });
   fs.writeFileSync(localPath(repoPath), JSON.stringify(obj)); return null;
 }
 async function listOrderMonths() {
-  if (useGH) { const g = await ghGet(`${GH.base}/orders`); return g && g.dir ? g.dir.filter(x => x.name.endsWith('.json')).map(x => x.name.replace('.json', '')) : []; }
-  return fs.readdirSync(__dirname).filter(f => f.startsWith('data__orders__') && f.endsWith('.json')).map(f => f.replace('data__orders__', '').replace('.json', ''));
+  const key = '__months'; const c = CACHE.get(key); if (c && Date.now() - c.t < TTL) return c.v;
+  let v;
+  if (useGH) { const g = await ghGet(`${GH.base}/orders`); v = g && g.dir ? g.dir.filter(x => x.name.endsWith('.json')).map(x => x.name.replace('.json', '')) : []; }
+  else { try { v = fs.readdirSync(localPath(`${GH.base}/orders`)).filter(f => f.endsWith('.json')).map(f => f.replace('.json', '')); } catch { v = []; } }
+  CACHE.set(key, { t: Date.now(), v }); return v;
 }
 async function getAllOrders() {
-  const months = await listOrderMonths(); const all = [];
-  for (const m of months) { const { obj } = await readJson(`${GH.base}/orders/${m}.json`); if (obj) all.push(...Object.values(obj)); }
+  const months = await listOrderMonths();
+  const parts = await Promise.all(months.map(m => readJson(`${GH.base}/orders/${m}.json`)));
+  const all = []; parts.forEach(p => { if (p.obj) all.push(...Object.values(p.obj)); });
   return all;
 }
-async function getInvestment() { const { obj } = await readJson(`${GH.base}/investment.json`); return obj || {}; }
-async function getConfig() { const { obj } = await readJson(`${GH.base}/config.json`); return obj || {}; }
-async function getDaily() { const { obj } = await readJson(`${GH.base}/daily.json`); return obj || {}; }
-async function getMeta() { const { obj } = await readJson(`${GH.base}/meta.json`); return obj || {}; }
-async function getShopify() { const { obj } = await readJson(`${GH.base}/shopify.json`); return obj || {}; }
+const getObj = async (name, dflt) => (await readJson(`${GH.base}/${name}`)).obj || dflt;
 
-// ─────────── Parseo del Excel de Dropi ───────────
-const norm = (s) => (s == null ? '' : String(s)).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
-const parseDate = (s) => { if (!s) return ''; const str = String(s);
-  const iso = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`; // ISO al inicio (ej. Shopify "2026-08-24 08:24 -0500") → tomar fecha local, NO convertir a UTC
-  const m = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  const d = new Date(str); return isNaN(d) ? '' : d.toISOString().slice(0, 10); };
-const numv = (v) => { if (v == null || v === '') return 0; const n = parseFloat(String(v).replace(/[^\d.-]/g, '')); return isFinite(n) ? n : 0; };
-const phv = (v) => { const d = String(v || '').replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }; // últimos 10 dígitos (celular CO) para emparejar teléfonos
-
-function parseDropi(buffer) {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
-  if (!rows.length) return [];
-  const hdr = rows[0].map(norm);
-  const col = (name) => hdr.indexOf(norm(name));
-  const c = {
-    id: col('ID'), fecha: col('FECHA'), nombre: col('NOMBRE CLIENTE'), estado: col('ESTATUS'),
-    transp: col('TRANSPORTADORA'), venta: col('VALOR DE COMPRA EN PRODUCTOS'), ganancia: col('GANANCIA'),
-    flete: col('PRECIO FLETE'), devflete: col('COSTO DEVOLUCION FLETE'), proveedor: col('TOTAL EN PRECIOS DE PROVEEDOR'),
-    ultmov: col('FECHA DE ULTIMO MOVIMIENTO'), depto: col('DEPARTAMENTO DESTINO'), ciudad: col('CIUDAD DESTINO'),
-    tipoenvio: col('TIPO DE ENVIO'),
-    tiendaNum: col('NUMERO DE PEDIDO DE TIENDA'), tiendaId: col('ID DE ORDEN DE TIENDA'), tel: col('TELEFONO'), // para enlazar con Shopify
-  };
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i]; const id = r[c.id];
-    if (id == null || id === '') continue;
-    const nombre = String(r[c.nombre] || '');
-    if (OMIT.some(o => nombre.toLowerCase().includes(o))) continue;   // omitir pruebas
-    out.push({
-      id: String(id), fecha: parseDate(r[c.fecha]), estado: String(r[c.estado] || '').trim().toUpperCase(),
-      transportadora: String(r[c.transp] || '').trim().toUpperCase() || '—', nombre,
-      venta: numv(r[c.venta]), ganancia: numv(r[c.ganancia]), flete: numv(r[c.flete]),
-      dev_flete: numv(r[c.devflete]), proveedor: numv(r[c.proveedor]), ult_mov: parseDate(r[c.ultmov]),
-      depto: String(r[c.depto] || ''), ciudad: String(r[c.ciudad] || ''),
-      tipo_envio: String(r[c.tipoenvio] || '').trim().toUpperCase(),
-      tienda_num: c.tiendaNum >= 0 ? String(r[c.tiendaNum] || '').replace('#', '').trim() : '',
-      tienda_id: c.tiendaId >= 0 ? String(r[c.tiendaId] || '').trim() : '',
-      telefono: c.tel >= 0 ? String(r[c.tel] || '') : '',
-    });
-  }
-  return out;
-}
-
-// ─────────── Parseo del reporte de Meta (Ads Manager, por día) ───────────
-// Convierte una celda (string, Date o serial de Excel) a YYYY-MM-DD
-function cellToDate(v) {
-  if (v == null || v === '') return '';
-  if (v instanceof Date) return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
-  if (typeof v === 'number') { const dc = XLSX.SSF.parse_date_code(Math.round(v)); return (dc && dc.y) ? `${dc.y}-${String(dc.m).padStart(2, '0')}-${String(dc.d).padStart(2, '0')}` : ''; } // round: el .xx es corrimiento de zona horaria
-  return parseDate(v);
-}
-function parseMeta(buffer) {
-  const wb = XLSX.read(buffer, { type: 'buffer', raw: false, codepage: 65001 }); // 65001 = UTF-8 (evita que "Día" se corrompa en CSV)
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  if (rows.length < 2) return [];
-  const hdr = rows[0].map(norm);
-  const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
-  // findEq: coincidencia por palabra completa (evita que "Compras" agarre "Valor de conversión de las compras…")
-  const findEq = (...keys) => { for (const k of keys) { const nk = norm(k); const i = hdr.findIndex(h => h === nk || h.indexOf(nk + ' ') === 0 || h.indexOf(nk + '(') === 0); if (i >= 0) return i; } return -1; };
-  const spendCol = find('IMPORTE GASTADO', 'AMOUNT SPENT', 'GASTADO', 'SPEND');
-  const ventasCol = findEq('RESULTADOS', 'COMPRAS', 'WEBSITE PURCHASES', 'PURCHASES', 'RESULTS'); // "Resultados"/"Compras" exacto
-  const facCol = find('VALOR DE CONVERSION', 'PURCHASES CONVERSION VALUE', 'CONVERSION VALUE');
-  const dayCol = find('DIA', 'DAY'); // columna de DÍA de entrega (solo en reportes con desglose por día)
-  const rd = (r) => ({ inversion: spendCol >= 0 ? numv(r[spendCol]) : 0, ventas_meta: ventasCol >= 0 ? numv(r[ventasCol]) : 0, facturacion: facCol >= 0 ? numv(r[facCol]) : 0 });
-  // ── Modo por DÍA ──
-  if (dayCol >= 0) {
-    const out = [];
-    for (let i = 1; i < rows.length; i++) { const fecha = cellToDate(rows[i][dayCol]); if (fecha) out.push(Object.assign({ fecha }, rd(rows[i]))); }
-    if (out.length) return out;
-  }
-  // ── Modo RESUMEN por periodo (reporte por campaña, sin desglose diario): sumar todo y atribuir al FIN del informe ──
-  let inv = 0, ven = 0, fac = 0;
-  for (let i = 1; i < rows.length; i++) { const v = rd(rows[i]); inv += v.inversion; ven += v.ventas_meta; fac += v.facturacion; }
-  const endCol = find('FIN DEL INFORME', 'REPORT END', 'FIN INFORME', 'FECHA FIN', 'HASTA');
-  const startCol = find('INICIO DEL INFORME', 'REPORT START', 'INICIO INFORME', 'FECHA INICIO', 'DESDE');
-  let fecha = '';
-  for (let i = 1; i < rows.length && !fecha; i++) if (endCol >= 0) fecha = cellToDate(rows[i][endCol]);
-  for (let i = 1; i < rows.length && !fecha; i++) if (startCol >= 0) fecha = cellToDate(rows[i][startCol]);
-  if (!fecha) return [];
-  return [{ fecha, inversion: inv, ventas_meta: ven, facturacion: fac }];
-}
-async function importMeta(buffer) {
-  const parsed = parseMeta(buffer);
-  const byDay = {}; // { fecha: {inversion, ventas, facturacion} }
-  parsed.forEach(p => { const b = byDay[p.fecha] = byDay[p.fecha] || { inversion: 0, ventas: 0, facturacion: 0 }; b.inversion += p.inversion; b.ventas += p.ventas_meta; b.facturacion += p.facturacion; });
-  Object.values(byDay).forEach(v => { v.inversion = Math.round(v.inversion); v.facturacion = Math.round(v.facturacion); });
-  // REEMPLAZA el archivo entero (re-subir no acumula; se puede borrar limpio)
-  const cur = await readJson(`${GH.base}/meta.json`);
-  await writeJson(`${GH.base}/meta.json`, byDay, cur.sha, 'meta: reporte');
-  await cleanLegacyMeta();
-  return { dias: Object.keys(byDay).length, total: parsed.length };
-}
-// Limpia datos viejos de Meta que quedaron en daily.json/investment.json (subidas anteriores rotas)
-async function cleanLegacyMeta() {
-  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
-  if (daily) { let ch = false; Object.keys(daily).forEach(d => { if (daily[d].ventas_meta !== undefined || daily[d].facturacion_meta !== undefined) { delete daily[d].ventas_meta; delete daily[d].facturacion_meta; ch = true; if (Object.keys(daily[d]).length === 0) delete daily[d]; } }); if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar meta legado'); }
-  // NO tocar investment.json: ahí vive la inversión diaria manual del usuario (la de Meta va en meta.json)
-}
-
-// ─────────── Parseo del reporte de Shopify (pedidos por día) ───────────
-function parseShopify(buffer) {
-  const wb = XLSX.read(buffer, { type: 'buffer', raw: false, codepage: 65001 });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  if (rows.length < 2) return {};
-  const hdr = rows[0].map(norm);
-  const find = (...keys) => { for (const k of keys) { const i = hdr.findIndex(h => h.includes(norm(k))); if (i >= 0) return i; } return -1; };
-  let fechaCol = find('CREATED AT', 'FECHA DE CREACION', 'PAID AT', 'FECHA', 'DIA', 'DAY', 'DATE');
-  const nameCol = find('NAME', 'NUMERO DE PEDIDO', 'ORDER NAME', 'PEDIDO', 'ORDER', 'NUMBER');
-  const idCol = hdr.findIndex(h => h === 'ID'); // "Id" del pedido de Shopify (== "ID DE ORDEN DE TIENDA" en Dropi)
-  const phoneCols = hdr.map((h, i) => (h.includes('PHONE') || h.includes('TELEFONO')) ? i : -1).filter(i => i >= 0); // Phone/Billing/Shipping
-  const countCol = find('PEDIDOS', 'ORDERS', 'ORDER COUNT', 'TOTAL ORDERS', 'CANTIDAD DE PEDIDOS');
-  const totalCol = find('TOTAL', 'TOTAL PRICE', 'PRECIO TOTAL', 'MONTO TOTAL', 'IMPORTE TOTAL', 'VENTAS TOTALES', 'TOTAL SALES');
-  if (fechaCol < 0) { let best = -1, bestN = 0; for (let c = 0; c < hdr.length; c++) { let n = 0; for (let i = 1; i < rows.length; i++) if (cellToDate(rows[i][c])) n++; if (n > bestN) { bestN = n; best = c; } } fechaCol = best; }
-  const byDay = {}, seen = {}, dates = {}; // byDay[fecha]={count,total}; dates['i:'+id | 'n:'+num] = fecha de entrada a Shopify
-  const b = (d) => (byDay[d] = byDay[d] || { count: 0, total: 0 });
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i]; const fecha = cellToDate(fechaCol >= 0 ? r[fechaCol] : ''); if (!fecha) continue;
-    if (totalCol >= 0) b(fecha).total += numv(r[totalCol]); // en Shopify solo la 1ª línea del pedido trae el total
-    if (countCol >= 0) { b(fecha).count += numv(r[countCol]); }
-    else if (nameCol >= 0) { const nm = String(r[nameCol] || '').trim(); if (nm) { const k = fecha + '|' + nm; if (!seen[k]) { seen[k] = 1; b(fecha).count += 1; } } }
-    else { b(fecha).count += 1; }
-    // mapa de fechas para re-fechar Dropi (1ª aparición de cada pedido)
-    const nm = nameCol >= 0 ? String(r[nameCol] || '').replace('#', '').trim() : '';
-    const id = idCol >= 0 ? String(r[idCol] || '').trim() : '';
-    if (nm && !dates['n:' + nm]) dates['n:' + nm] = fecha;
-    if (id && !dates['i:' + id]) dates['i:' + id] = fecha;
-    for (const pc of phoneCols) { const ph = phv(r[pc]); if (ph && !dates['p:' + ph]) { dates['p:' + ph] = fecha; break; } }
-  }
-  return { byDay, dates };
-}
-async function importShopify(buffer) {
-  const { byDay: parsed, dates } = parseShopify(buffer);
-  const byDay = {}; // { fecha: {ventas, facturacion} }
-  Object.entries(parsed).forEach(([d, v]) => { byDay[d] = { ventas: v.count, facturacion: Math.round(v.total) }; });
-  const cur = await readJson(`${GH.base}/shopify.json`);
-  await writeJson(`${GH.base}/shopify.json`, byDay, cur.sha, 'shopify: reporte');
-  // guardar mapa de fechas de pedidos (para que al subir Dropi se re-feche por la entrada a Shopify)
-  const curD = await readJson(`${GH.base}/shopify_dates.json`);
-  await writeJson(`${GH.base}/shopify_dates.json`, dates, curD.sha, 'shopify: fechas de pedidos');
-  const refechados = await applyShopifyDatesToStored(dates); // re-fechar pedidos de Dropi ya guardados
-  await cleanLegacyShopify();
-  return { dias: Object.keys(byDay).length, pedidos: Object.keys(dates).filter(k => k[0] === 'n').length, refechados };
-}
-async function cleanLegacyShopify() {
-  const dR = await readJson(`${GH.base}/daily.json`); const daily = dR.obj;
-  if (!daily) return; let ch = false;
-  Object.keys(daily).forEach(d => { if (daily[d].ventas_shopify !== undefined || daily[d].facturacion_shopify !== undefined) { delete daily[d].ventas_shopify; delete daily[d].facturacion_shopify; ch = true; if (Object.keys(daily[d]).length === 0) delete daily[d]; } });
-  if (ch) await writeJson(`${GH.base}/daily.json`, daily, dR.sha, 'limpiar shopify legado');
-}
-
-// Devuelve la fecha de entrada a Shopify para un pedido de Dropi (por id de tienda, número de pedido o teléfono)
-const matchShopifyDate = (o, dates) => (o.tienda_id && dates['i:' + o.tienda_id]) || (o.tienda_num && dates['n:' + o.tienda_num]) || (o.telefono && dates['p:' + phv(o.telefono)]) || '';
-
-// Re-fecha los pedidos YA guardados según el mapa de Shopify (para cuando Dropi se subió antes que Shopify)
-async function applyShopifyDatesToStored(dates) {
-  if (!dates || !Object.keys(dates).length) return 0;
-  const months = await listOrderMonths(); const stores = {}, shas = {}, dirty = new Set();
-  for (const m of months) { const { obj, sha } = await readJson(`${GH.base}/orders/${m}.json`); stores[m] = obj || {}; shas[m] = sha; }
-  let moved = 0;
-  for (const m of months) for (const id of Object.keys(stores[m])) {
-    const o = stores[m][id]; const sf = matchShopifyDate(o, dates);
-    if (sf && o.fecha !== sf) {
-      moved++; o.fecha_dropi = o.fecha_dropi || o.fecha; o.fecha = sf; const newM = sf.slice(0, 7);
-      if (newM !== m) { stores[newM] = stores[newM] || {}; stores[newM][id] = o; delete stores[m][id]; dirty.add(newM); }
-      dirty.add(m);
+// ─────────── Meta en vivo (opcional, si hay META_TOKEN en Render) ───────────
+const prodFromCampaign = (n) => String(n || '').replace(/^\s*(ABO|CBO)\s*\|\s*/i, '').split(/\s\|\s|\s-\s/)[0].trim().replace(/\s+/g, ' ');
+async function refreshMeta(since, until) {
+  if (!META.token) throw new Error('Falta META_TOKEN en Render (Environment) para actualizar Meta desde aquí.');
+  const rows = [];
+  for (const acc of META.accounts) {
+    let url = `https://graph.facebook.com/v21.0/act_${acc}/insights?level=campaign&time_increment=1&limit=500` +
+      `&fields=campaign_id,campaign_name,spend,actions,action_values&time_range=${encodeURIComponent(JSON.stringify({ since, until }))}&access_token=${META.token}`;
+    while (url) {
+      const r = await fetch(url); const j = await r.json();
+      if (j.error) throw new Error('Meta: ' + j.error.message);
+      for (const d of j.data || []) {
+        const act = (arr, t) => { const a = (arr || []).find(x => x.action_type === t); return a ? +a.value : 0; };
+        rows.push({ fecha: d.date_start, cuenta: acc, campaign_id: d.campaign_id, campaign: d.campaign_name, producto: prodFromCampaign(d.campaign_name),
+          inversion: Math.round(+d.spend || 0), ventas: act(d.actions, 'omni_purchase') || act(d.actions, 'purchase'), facturacion: Math.round(act(d.action_values, 'omni_purchase') || act(d.action_values, 'purchase')) });
+      }
+      url = j.paging && j.paging.next;
     }
   }
-  for (const m of dirty) await writeJson(`${GH.base}/orders/${m}.json`, stores[m], shas[m], `re-fechar orders ${m} por Shopify`);
-  return moved;
-}
-
-async function importOrders(buffer) {
-  const parsed = parseDropi(buffer);
-  // Re-fechar por la fecha de entrada a Shopify (logística sube a Dropi 0-1+ días después)
-  const { obj: sd } = await readJson(`${GH.base}/shopify_dates.json`);
-  const dates = sd || {};
-  let refechados = 0; const removeFrom = {}; // mes viejo -> [ids] que cambiaron de mes al re-fechar
-  for (const o of parsed) {
-    const sf = matchShopifyDate(o, dates);
-    if (sf) {
-      if (o.fecha !== sf) { refechados++; const oldM = (o.fecha || '').slice(0, 7), newM = sf.slice(0, 7); if (oldM && oldM !== newM) (removeFrom[oldM] = removeFrom[oldM] || []).push(o.id); }
-      o.fecha_dropi = o.fecha; o.fecha = sf; // fecha = entrada Shopify; guardo la de Dropi por referencia
-    }
-  }
-  const byMonth = {};
-  for (const o of parsed) { const m = (o.fecha || '0000-00').slice(0, 7); (byMonth[m] = byMonth[m] || []).push(o); }
-  let added = 0, updated = 0;
-  const allMonths = new Set([...Object.keys(byMonth), ...Object.keys(removeFrom)]);
-  for (const m of allMonths) {
-    const p = `${GH.base}/orders/${m}.json`;
-    const { obj, sha } = await readJson(p);
-    const store = obj || {};
-    for (const o of (byMonth[m] || [])) { if (store[o.id]) updated++; else added++; store[o.id] = o; }
-    for (const id of (removeFrom[m] || [])) { if (store[id] && !(byMonth[m] || []).some(o => o.id === id)) delete store[id]; } // quitar copia vieja de pedido que se movió de mes
-    await writeJson(p, store, sha, `orders ${m}: +${(byMonth[m] || []).length}`);
-  }
-  return { total: parsed.length, added, updated, meses: Object.keys(byMonth), refechados };
+  const cur = await readJson(`${GH.base}/meta_campaigns.json`);
+  const keep = (cur.obj || []).filter(x => x.fecha < since || x.fecha > until || !META.accounts.includes(x.cuenta)); // reemplaza solo el rango pedido
+  await writeJson(`${GH.base}/meta_campaigns.json`, keep.concat(rows), cur.sha, `meta ${since}..${until}`);
+  const s = await readJson(`${GH.base}/sync.json`); const sync = s.obj || {}; sync.meta = new Date().toISOString();
+  await writeJson(`${GH.base}/sync.json`, sync, s.sha, 'sync meta');
+  return { filas: rows.length };
 }
 
 // ─────────── HTTP ───────────
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.ico': 'image/x-icon' };
 const sendJson = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
-function readBody(req) { return new Promise((resolve, reject) => { let b = '', s = 0; req.on('data', c => { s += c.length; if (s > 30 * 1024 * 1024) { reject(new Error('too large')); req.destroy(); } b += c; }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } }); req.on('error', reject); }); }
+function readBody(req) { return new Promise((resolve, reject) => { let b = '', s = 0; req.on('data', c => { s += c.length; if (s > 2 * 1024 * 1024) { reject(new Error('too large')); req.destroy(); } b += c; }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } }); req.on('error', reject); }); }
 
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   try {
+    if (url === '/api/all' && req.method === 'GET') {
+      const [orders, meta, config, sync] = await Promise.all([getAllOrders(), getObj('meta_campaigns.json', []), getObj('config.json', {}), getObj('sync.json', {})]);
+      return sendJson(res, 200, { orders, meta, config, sync, metaLive: !!META.token });
+    }
     if (url === '/api/orders' && req.method === 'GET') return sendJson(res, 200, await getAllOrders());
-    if (url === '/api/upload' && req.method === 'POST') {
+    if (url === '/api/meta' && req.method === 'GET') return sendJson(res, 200, await getObj('meta_campaigns.json', []));
+    if (url === '/api/refresh-meta' && req.method === 'POST') {
       const body = await readBody(req);
-      if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
-      const buffer = Buffer.from(body.file, 'base64');
-      const result = await importOrders(buffer);
-      return sendJson(res, 200, result);
+      const until = body.until || new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); // hora Colombia
+      const since = body.since || new Date(Date.now() - 5 * 3600e3 - 30 * 86400e3).toISOString().slice(0, 10);
+      return sendJson(res, 200, await refreshMeta(since, until));
     }
-    if (url === '/api/investment' && req.method === 'GET') return sendJson(res, 200, await getInvestment());
-    if (url === '/api/investment' && req.method === 'POST') {
-      const body = await readBody(req); // { fecha, monto }
-      const { obj, sha } = await readJson(`${GH.base}/investment.json`);
-      const inv = obj || {};
-      if (body.fecha) { if (numv(body.monto) === 0) delete inv[body.fecha]; else inv[body.fecha] = numv(body.monto); }
-      await writeJson(`${GH.base}/investment.json`, inv, sha, `investment ${body.fecha}`);
-      return sendJson(res, 200, inv);
-    }
-    if (url === '/api/upload-meta' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
-      const result = await importMeta(Buffer.from(body.file, 'base64'));
-      return sendJson(res, 200, result);
-    }
-    if (url === '/api/upload-shopify' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!body.file) return sendJson(res, 400, { error: 'falta el archivo' });
-      const result = await importShopify(Buffer.from(body.file, 'base64'));
-      return sendJson(res, 200, result);
-    }
-    if (url === '/api/meta' && req.method === 'GET') return sendJson(res, 200, await getMeta());
-    if (url === '/api/shopify' && req.method === 'GET') return sendJson(res, 200, await getShopify());
-    if (url === '/api/clear' && req.method === 'POST') {
-      const body = await readBody(req); const tipo = body.tipo;
-      if (tipo === 'meta') { const c = await readJson(`${GH.base}/meta.json`); await writeJson(`${GH.base}/meta.json`, {}, c.sha, 'clear meta'); await cleanLegacyMeta(); return sendJson(res, 200, { ok: true }); }
-      if (tipo === 'shopify') { const c = await readJson(`${GH.base}/shopify.json`); await writeJson(`${GH.base}/shopify.json`, {}, c.sha, 'clear shopify'); const cd = await readJson(`${GH.base}/shopify_dates.json`); await writeJson(`${GH.base}/shopify_dates.json`, {}, cd.sha, 'clear shopify fechas'); await cleanLegacyShopify(); return sendJson(res, 200, { ok: true }); }
-      if (tipo === 'dropi') { const months = await listOrderMonths(); for (const mo of months) { const p = `${GH.base}/orders/${mo}.json`; const { sha } = await readJson(p); await writeJson(p, {}, sha, 'clear orders ' + mo); } return sendJson(res, 200, { ok: true }); }
-      return sendJson(res, 400, { error: 'tipo inválido' });
-    }
-    if (url === '/api/daily' && req.method === 'GET') return sendJson(res, 200, await getDaily());
-    if (url === '/api/daily' && req.method === 'POST') {
-      const body = await readBody(req); // { fecha, field, value }  (value '' borra el override)
-      const { obj, sha } = await readJson(`${GH.base}/daily.json`);
-      const daily = obj || {};
-      if (body.fecha && body.field !== undefined) {
-        const cur = daily[body.fecha] || {};
-        if (body.value === '' || body.value == null) delete cur[body.field];
-        else cur[body.field] = numv(body.value);
-        if (Object.keys(cur).length) daily[body.fecha] = cur; else delete daily[body.fecha];
-      }
-      await writeJson(`${GH.base}/daily.json`, daily, sha, `daily ${body.fecha}`);
-      return sendJson(res, 200, daily);
-    }
-    if (url === '/api/config' && req.method === 'GET') return sendJson(res, 200, await getConfig());
+    if (url === '/api/config' && req.method === 'GET') return sendJson(res, 200, await getObj('config.json', {}));
     if (url === '/api/config' && req.method === 'POST') {
-      const body = await readBody(req); // objeto con claves a fusionar, p.ej. { efectividad: 75 }
+      const body = await readBody(req); // objeto con claves a fusionar
       const { obj, sha } = await readJson(`${GH.base}/config.json`);
       const cfg = Object.assign(obj || {}, body || {});
       await writeJson(`${GH.base}/config.json`, cfg, sha, 'config');
       return sendJson(res, 200, cfg);
     }
     let file = url === '/' ? '/index.html' : url;
+    if (file.startsWith('/data/') || file.startsWith('/tools/')) { res.writeHead(404); return res.end('Not found'); }
     const fp = path.join(__dirname, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
     if (fs.existsSync(fp) && fs.statSync(fp).isFile()) { res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'text/plain' }); return fs.createReadStream(fp).pipe(res); }
     res.writeHead(404); res.end('Not found');
