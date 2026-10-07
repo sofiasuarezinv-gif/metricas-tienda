@@ -34,14 +34,15 @@ if (dropiFile) {
       id,
       // si el pedido se re-fechó por Shopify (fecha_dropi existe), se respeta esa fecha
       fecha: prev && prev.fecha_dropi ? prev.fecha : fechaApi,
-      created_at: s.created_at, updated_at: s.updated_at, estado,
+      created_at: s.created_at, estado,
       transportadora: String(s.transportadora || s.shipping_company || '').trim().toUpperCase() || '—',
       nombre: s.nombre || (prev && prev.nombre) || '', telefono: s.telefono || (prev && prev.telefono) || '',
       ciudad: s.ciudad || (prev && prev.ciudad) || '', direccion: s.direccion || '',
       venta: +s.total || (prev && prev.venta) || 0,
       tipo_envio: String(s.rate_type || (prev && prev.tipo_envio) || '').toUpperCase(),
       anticipado: /SIN RECAUDO/i.test(s.rate_type || ''),
-      oficina: /OFICINA/i.test(dirTxt) || /OFICINA/i.test((prev && prev.tipo_envio) || ''),
+      // a oficina: estado "RECLAME EN OFICINA" o dirección con "oficina"; una vez marcado se conserva (luego pasa a ENTREGADO)
+      oficina: !!(prev && prev.oficina) || /OFICINA/i.test(estado) || /OFICINA/i.test(dirTxt),
       items: items.map(i => ({ producto: i.product_name, qty: +i.qty || 1, unit_price: +i.unit_price || 0 })),
       producto: items[0] ? String(items[0].product_name).trim() : ((prev && prev.producto) || ''),
       unidades: items.reduce((a, i) => a + (+i.qty || 1), 0) || 1,
@@ -51,8 +52,9 @@ if (dropiFile) {
     // costo proveedor: el del Excel si existe; si no, precio proveedor × cantidad de la API
     const provApi = items.reduce((a, i) => a + (+i.unit_price || 0) * (+i.qty || 1), 0);
     o.proveedor = prev && prev.proveedor > 0 ? prev.proveedor : provApi;
-    // fecha de entrega ≈ último movimiento cuando está entregado
-    if (estado === 'ENTREGADO') o.fecha_entrega = (prev && prev.fecha_entrega) || String(s.updated_at || '').slice(0, 10) || (prev && prev.ult_mov) || '';
+    // fecha de entrega: la API no la da (updated_at = hora de la consulta). Se registra el primer día que la sincronización lo ve ENTREGADO.
+    if (estado === 'ENTREGADO' && !o.fecha_entrega) o.fecha_entrega = (prev && prev.ult_mov && prev.estado === 'ENTREGADO') ? prev.ult_mov : (prev && prev.estado !== 'ENTREGADO' ? new Date().toISOString().slice(0, 10) : '');
+    delete o.updated_at;
     if (s.extra && Object.keys(s.extra).length) o.extra = s.extra;
     const m = (o.fecha || '0000-00').slice(0, 7);
     if (where[id] && where[id] !== m) delete stores[where[id]][id];

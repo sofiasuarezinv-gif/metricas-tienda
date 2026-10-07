@@ -243,14 +243,15 @@ function setRange(type){RANGE={type};document.querySelectorAll('#filters button'
 const inRange=(f,r)=>f&&f>=r.from&&f<=r.to;
 
 // ───── productos: Meta (nombre de campaña) → producto de Dropi ─────
-const toks=s=>strip(s).replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>=4);
+const toks=s=>strip(s).replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>=4&&!STOP.has(w));
+const STOP=new Set(['PARA','CON','DEL','LAS','LOS','UNA','PACK','COMBO']);
 function lev(a,b){const m=a.length,n=b.length;if(Math.abs(m-n)>2)return 9;const d=Array.from({length:m+1},(_,i)=>[i]);for(let j=1;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n];}
 let _pmap=null;
 function dropiProducts(){const s=new Set();ORDERS.forEach(o=>{if(o.producto)s.add(o.producto);});return[...s].sort();}
 function metaProducts(){return[...new Set(META.map(m=>m.producto))].sort();}
 function autoMatch(mp){
   const mt=toks(mp);let best=null,bs=0;
-  for(const dp of dropiProducts()){const dt=toks(dp);let s=0;mt.forEach(a=>{if(dt.some(b=>a===b||(a.length>=5&&lev(a,b)<=2)))s++;});if(s>bs){bs=s;best=dp;}}
+  for(const dp of dropiProducts()){const dt=toks(dp);let s=0;mt.forEach(a=>{if(dt.some(b=>a===b||(a.length>=5&&lev(a,b)<=(a.length>=7?2:1))))s++;});if(s>bs){bs=s;best=dp;}}
   return best;
 }
 function prodMap(){
@@ -366,7 +367,7 @@ const METRICS=[
  {l:'% pagos anticipados',f:m=>div(m.antic,m.comp),t:'%'},
  {l:'Recaudado pagos anticipados',f:m=>m.anticVal,t:'$'},
  {s:'🚚 Logística'},
- {l:'Tiempo promedio de entrega',f:m=>m.tdel,t:'d',d:'Fecha de entrega − fecha de creación'},
+ {l:'Tiempo promedio de entrega',f:m=>m.tdel,t:'d',d:'Fecha de entrega − fecha de creación (Dropi no da la fecha de entrega: se mide con la sincronización diaria)'},
 ];
 
 // ───── agrupación por dimensión ─────
