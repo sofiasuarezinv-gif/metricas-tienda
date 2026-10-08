@@ -111,8 +111,8 @@ const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   try {
     if (url === '/api/all' && req.method === 'GET') {
-      const [orders, meta, config, sync] = await Promise.all([getAllOrders(), getObj('meta_campaigns.json', []), getObj('config.json', {}), getObj('sync.json', {})]);
-      return sendJson(res, 200, { orders, meta, config, sync, metaLive: !!META.token });
+      const [orders, meta, config, sync, shopify] = await Promise.all([getAllOrders(), getObj('meta_campaigns.json', []), getObj('config.json', {}), getObj('sync.json', {}), getObj('shopify_data.json', { orders: [], drafts: [] })]);
+      return sendJson(res, 200, { orders, meta, config, sync, shopify, metaLive: !!META.token });
     }
     if (url === '/api/orders' && req.method === 'GET') return sendJson(res, 200, await getAllOrders());
     if (url === '/api/meta' && req.method === 'GET') return sendJson(res, 200, await getObj('meta_campaigns.json', []));

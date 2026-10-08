@@ -195,7 +195,7 @@
 
 <script>
 const $=s=>document.querySelector(s);
-let ORDERS=[],META=[],CFG={},SYNC={},META_LIVE=false;
+let ORDERS=[],META=[],CFG={},SYNC={},META_LIVE=false,SHOP={orders:[],drafts:[]};
 let VIEW='metricas',DIM='general',RANGE={type:'30d'};
 const DEFAULT_FLETES={ENVIA:17450,COORDINADORA:21800,INTERRAPIDISIMO:20800,TCC:19500,SERVIENTREGA:19500,DOMINA:19500,VELOCES:19500};
 const CIUDADES=['BOGOTA','MEDELLIN','CALI','BARRANQUILLA','CARTAGENA','BUCARAMANGA'];
@@ -265,7 +265,7 @@ const metaProd=m=>prodMap()[m.producto]||m.producto;
 function cityKey(o){const c=strip(o.ciudad);for(const k of CIUDADES)if(c.startsWith(k))return k==='BOGOTA'?'BOGOTÁ':k==='MEDELLIN'?'MEDELLÍN':k;return'OTRAS CIUDADES';}
 
 // ───── cálculo de métricas para un grupo ─────
-function calc(L,mt){
+function calc(L,mt,sh){
   const sum=(a,f)=>a.reduce((s,o)=>s+(+f(o)||0),0);
   const comp=L.length,canc=L.filter(isCanc),desp=L.filter(o=>!isCanc(o)),ent=L.filter(isEnt),dev=L.filter(isDev);
   const fin=ent.concat(dev); // pedidos cerrados (ya cobraron flete)
@@ -278,7 +278,11 @@ function calc(L,mt){
   const sub=(A)=>{const c=A.filter(isCanc).length,d=A.length-c,e=A.filter(isEnt).length,v=A.filter(isDev).length;return{n:A.length,c,d,e,v};};
   const of=sub(L.filter(o=>o.oficina)),cm=sub(L.filter(o=>o.comentarios));
   const tdel=ent.map(o=>o.fecha_entrega&&o.fecha?(new Date(o.fecha_entrega)-new Date(o.fecha))/864e5:null).filter(x=>x!=null&&x>=0);
-  return{comp,canc:canc.length,desp:desp.length,ent:ent.length,dev:dev.length,proc:desp.length-ent.length-dev.length,
+  const PL=L.filter(o=>o.origen==='preliminar'),SL=L.filter(o=>o.origen==='shopify');
+  const pd=PL.filter(o=>!isCanc(o)),sd=SL.filter(o=>!isCanc(o)),valPrelim=sum(PL,o=>o.venta);
+  const shop={ventas:sh?sh.orders.filter(o=>!o.cancelled).length:SL.length,prelim:sh?sh.drafts.filter(d=>d.valido).length:null,prelimConvD:sh?sh.drafts.filter(d=>d.valido&&d.dropi_id).length:null,
+    conv:PL.length,valPrelim,efPrelim:div(pd.filter(isEnt).length,pd.length),efMeta:div(sd.filter(isEnt).length,sd.length),manual:L.filter(o=>o.origen==='manual').length};
+  return{shop,comp,canc:canc.length,desp:desp.length,ent:ent.length,dev:dev.length,proc:desp.length-ent.length-dev.length,
     ventasMeta:mt.ventas||0,factMeta:mt.fac||0,inv,prorr:mt.prorr,valDropi,factDesp,factEnt,ingresado,cProv,cTransp,cDev,costos,gan,
     fleteProm:div(cTransp,fin.length),fleteDevProm:div(cDev,dev.length),provProm:div(cProv,ent.length),
     u2,u3,um,uni:sum(L,units),of,cm,antic:antic.length,anticVal:sum(antic,o=>o.venta),tdel:tdel.length?tdel.reduce((a,b)=>a+b,0)/tdel.length:null,est:anyEst(fin)};
@@ -298,29 +302,30 @@ const METRICS=[
  {l:'% despachados',f:m=>div(m.desp,m.comp),t:'%',d:'Despachados ÷ completos'},
  {s:'📣 Ventas y Meta'},
  {l:'Ventas de Meta',f:m=>m.ventasMeta,t:'n',d:'Compras atribuidas por Meta'},
- {l:'Ventas Shopify',p:P,t:'n',d:'Pedidos Shopify'},
+ {l:'Ventas Shopify',f:m=>m.shop.ventas,t:'n',d:'Pedidos que entraron por la tienda Shopify'},
  {l:'Ventas en Dropi',f:m=>m.comp,t:'n',d:'Pedidos registrados en Dropi'},
  {l:'Inversión en Meta',f:m=>m.inv,t:'$',d:'Gasto total en Meta'},
  {l:'CPA Meta',f:m=>div(m.inv,m.ventasMeta),t:'$',d:'Inversión ÷ ventas Meta'},
  {l:'% CPA Meta',f:m=>div(m.inv,m.factMeta),t:'%',d:'Inversión ÷ valor de conversión Meta'},
- {l:'Preliminares',p:P,t:'n',d:'Preliminares registrados en Shopify'},
+ {l:'Preliminares',f:m=>m.shop.prelim,t:'n',d:'Pedidos preliminares de Shopify (checkouts abandonados del formulario), sin duplicados'},
  {l:'CPA Dropi',f:m=>div(m.inv,m.comp),t:'$',d:'Inversión ÷ ventas en Dropi'},
  {l:'% CPA Dropi',f:m=>div(m.inv,m.valDropi),t:'%',d:'Inversión ÷ valor de ventas Dropi'},
  {l:'CPA entregado',f:m=>div(m.inv,m.ent),t:'$',d:'Inversión ÷ entregados'},
  {l:'CPA despachado',f:m=>div(m.inv,m.desp),t:'$',d:'Inversión ÷ despachados'},
- {l:'Ventas Dropi sin preliminares',p:P,t:'n',d:'Ventas Dropi − preliminares convertidos'},
- {l:'Preliminares convertidos',p:P,t:'n',d:'Preliminares que luego aparecen en Dropi'},
- {l:'% conversión de preliminares',p:P,t:'%',d:'Convertidos ÷ preliminares'},
- {l:'% efectividad de preliminares',p:P,t:'%',d:'Entregados ÷ despachados (preliminares)'},
- {l:'% efectividad ventas Meta',p:P,t:'%',d:'Ventas Meta entregadas ÷ despachadas (necesita Shopify para saber qué pedido vino de Meta)'},
+ {l:'Ventas Dropi sin preliminares',f:m=>m.comp-m.shop.conv,t:'n',d:'Ventas Dropi − preliminares convertidos'},
+ {l:'Preliminares convertidos',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar (mismo teléfono)'},
+ {l:'% conversión de preliminares',f:m=>m.shop.prelim==null?null:div(m.shop.prelimConvD,m.shop.prelim),t:'%',d:'Preliminares recuperados ÷ preliminares'},
+ {l:'% efectividad de preliminares',f:m=>m.shop.efPrelim,t:'%',d:'Entregados ÷ despachados de los preliminares que están en Dropi'},
+ {l:'% efectividad ventas Meta',f:m=>m.shop.efMeta,t:'%',d:'Entregados ÷ despachados de los pedidos que entraron por la tienda (tráfico de Meta)'},
+ {l:'Pedidos manuales',f:m=>m.shop.manual,t:'n',d:'En Dropi sin pedido de Shopify ni preliminar'},
  {s:'💵 ROAS y facturación'},
  {l:'ROAS Meta',f:m=>div(m.factMeta,m.inv),t:'x',d:'Facturación Meta ÷ inversión'},
- {l:'ROAS incluyendo preliminares',p:P,t:'x',d:'(Fact. Meta + preliminares) ÷ inversión'},
+ {l:'ROAS incluyendo preliminares',f:m=>div(m.factMeta+m.shop.valPrelim,m.inv),t:'x',d:'(Fact. Meta + valor de preliminares convertidos) ÷ inversión'},
  {l:'ROAS despachado',f:m=>div(m.factDesp,m.inv),t:'x',d:'Facturación despachada ÷ inversión'},
  {l:'ROAS entregado',f:m=>div(m.factEnt,m.inv),t:'x',d:'Facturación entregada ÷ inversión'},
  {l:'ROAS recolectado',f:m=>div(m.ingresado,m.inv),t:'x',d:'Dinero ingresado a Dropi ÷ inversión'},
  {l:'Facturación Meta',f:m=>m.factMeta,t:'$',d:'Valor de conversión de Meta'},
- {l:'Facturación incluyendo preliminares',p:P,t:'$',d:'Fact. Meta + valor de preliminares'},
+ {l:'Facturación incluyendo preliminares',f:m=>m.factMeta+m.shop.valPrelim,t:'$',d:'Fact. Meta + valor de preliminares convertidos'},
  {l:'Facturación despachada',f:m=>m.factDesp,t:'$',d:'Valor de pedidos despachados'},
  {l:'Facturación entregada',f:m=>m.factEnt,t:'$',d:'Valor de pedidos entregados'},
  {l:'% recolectado',f:m=>div(m.ingresado,m.factDesp),t:'%',d:'Dinero ingresado ÷ facturación despachada'},
@@ -391,7 +396,7 @@ function groupsFor(dim,L,M){
 function syncbar(){
   const ago=s=>{if(!s)return'nunca';const h=(Date.now()-new Date(s))/36e5;return h<1?'hace '+Math.max(1,Math.round(h*60))+' min':h<48?'hace '+Math.round(h)+' h':'hace '+Math.round(h/24)+' días';};
   const cls=s=>!s?'warn':(Date.now()-new Date(s))/36e5<30?'ok':'warn';
-  $('#syncbar').innerHTML=`<span class="chip ${cls(SYNC.dropi)}">🟣 Dropi: ${ago(SYNC.dropi)}</span><span class="chip ${cls(SYNC.meta)}">🔵 Meta: ${ago(SYNC.meta)}</span><span class="chip warn">🟢 Shopify: conector pendiente</span><span style="opacity:.7">${ORDERS.length} pedidos · ${META.length} filas de Meta</span>`;
+  $('#syncbar').innerHTML=`<span class="chip ${cls(SYNC.dropi)}">🟣 Dropi: ${ago(SYNC.dropi)}</span><span class="chip ${cls(SYNC.meta)}">🔵 Meta: ${ago(SYNC.meta)}</span><span class="chip ${cls(SYNC.shopify)}">🟢 Shopify: ${ago(SYNC.shopify)}</span><span style="opacity:.7">${ORDERS.length} pedidos · ${META.length} filas de Meta · ${SHOP.orders.length} pedidos Shopify</span>`;
 }
 function render(){
   syncbar();
@@ -404,7 +409,8 @@ function renderMetricas(){
   const dimsH=`<div class="dims">${DIMS.map(([k,n])=>`<button class="${DIM===k?'active':''}" onclick="DIM='${k}';renderMetricas()">${n}</button>`).join('')}</div>`;
   const head=`<h2 class="title">📊 Métricas</h2><p class="muted">${r.from==='2000-01-01'?'Todo el histórico':r.from+' → '+r.to} · datos directos de Dropi y Meta (sin subir reportes).</p>`;
   if(!L.length&&!M.length){$('#view-metricas').innerHTML=head+dimsH+'<div class="empty">No hay pedidos ni inversión en este rango.</div>';return;}
-  const tot=calc(L,{inv:M.reduce((s,m)=>s+m.inversion,0),ventas:M.reduce((s,m)=>s+m.ventas,0),fac:M.reduce((s,m)=>s+m.facturacion,0)});
+  const SH={orders:SHOP.orders.filter(o=>inRange(o.fecha,r)),drafts:SHOP.drafts.filter(d=>inRange(d.fecha,r))};
+  const tot=calc(L,{inv:M.reduce((s,m)=>s+m.inversion,0),ventas:M.reduce((s,m)=>s+m.ventas,0),fac:M.reduce((s,m)=>s+m.facturacion,0)},SH);
   let body='';
   if(DIM==='general'){
     let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
@@ -415,7 +421,8 @@ function renderMetricas(){
       sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${d.d?`<div class="f">${d.d}</div>`:''}</div>`;
     });flush();
   }else{
-    const G=groupsFor(DIM,L,M).map(g=>({...g,m:calc(g.list,g.mt)}));
+    const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
+    const G=groupsFor(DIM,L,M).map(g=>({...g,m:calc(g.list,g.mt,shKey?{orders:SH.orders.filter(o=>shKey(o.fecha)===g.name),drafts:SH.drafts.filter(d=>shKey(d.fecha)===g.name)}:null)}));
     const prorr=G.some(g=>g.mt.prorr);
     const note=prorr?`<div class="hint">La inversión de Meta no se puede separar por ${DIM==='ciudad'?'ciudad':'transportadora'}: se reparte proporcional a los pedidos de cada grupo (CPA/ROAS de esta vista son aproximados).</div>`:
       DIM==='producto'?`<div class="hint">La inversión de Meta se asigna al producto según el nombre de la campaña. Si algún producto no casa bien, ajústalo en ⚙️ Configuración → Productos.</div>`:'';
@@ -532,7 +539,7 @@ async function load(){
   $('#view-metricas').innerHTML='<div class="empty">Cargando datos…</div>';
   try{
     const j=await (await fetch('/api/all')).json();
-    ORDERS=(j.orders||[]).filter(o=>o&&o.id);META=j.meta||[];CFG=j.config||{};SYNC=j.sync||{};META_LIVE=!!j.metaLive;_pmap=null;
+    ORDERS=(j.orders||[]).filter(o=>o&&o.id);SHOP=j.shopify||{orders:[],drafts:[]};META=j.meta||[];CFG=j.config||{};SYNC=j.sync||{};META_LIVE=!!j.metaLive;_pmap=null;
   }catch(e){$('#view-metricas').innerHTML='<div class="empty">No se pudieron cargar los datos. Si el servidor estaba dormido, espera un minuto y recarga.</div>';return;}
   render();
 }
