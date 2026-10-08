@@ -611,8 +611,7 @@ function renderDetalle(m,L,M,SH){
             seg('Tienda',CC.a,p=>p.tienda),seg('Preliminar recuperado',CC.y,p=>p.prel),seg('Manual',CC.gray,p=>p.manual,1)]},340),1);})());
   // 🎯 CPA
   h+=sec('🎯 CPA',
-    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+'\n'+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+'\n'+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}))+
-    box('CPA día a día','Solo días con ventas · línea punteada = promedio',dayBars('ch-cpa-dia',days,i=>per[i].vm||per[i].dropi,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?Math.round(p.inv/p.vm):null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?Math.round(p.inv/p.dropi):null)}],f$,330),1));
+    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+'\n'+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+'\n'+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}),1));
   // 🧾 Preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
   h+=sec('🧾 Preliminares',
