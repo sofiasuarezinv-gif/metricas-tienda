@@ -617,7 +617,9 @@ function estadoPorGrupo(id,G,h){
   const ef=r=>div(r.m.ent,r.m.desp); // misma efectividad que el resto del dashboard (entregados ÷ despachados)
   const efc=v=>v==null?'#948fb0':v>=.8?'#34d399':v>=.65?'#fab219':'#f87171';
   const nm=s=>{s=String(s).replace(/ \((lun-vie|sáb-dom)\)/,'');return s.length>22?s.slice(0,21)+'…':s;};
-  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos (${fP(r.m.comp/TT)} del total)<br>`+S.map(([n,f,c])=>`<span style="color:${c}">●</span> ${n}: <b>${f(r)}</b> (${fP(div(f(r),r.m.comp))})`).join('<br>')+
+  // recuadros arriba: % del total y pedidos de cada uno
+  const cards=`<div class="pl-kpis">${rows.map(r=>`<div class="pl-k" style="border-left:3px solid #7c5cff"><div class="pl-kl">${nm(r.n)}</div><div class="pl-kv">${fP(r.m.comp/TT)}</div><div style="font-size:12px;color:var(--sub);font-weight:600">${r.m.comp} ${r.m.comp===1?'pedido':'pedidos'}</div></div>`).join('')}</div>`;
+  return cards+ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos (${fP(r.m.comp/TT)} del total)<br>`+S.map(([n,f,c])=>`<span style="color:${c}">●</span> ${n}: <b>${f(r)}</b> (${fP(div(f(r),r.m.comp))})`).join('<br>')+
       `<br>Efectividad (entregados ÷ despachados): <b>${fP(ef(r))}</b><br>Solo pedidos ya cerrados (entregados ÷ entregados+devueltos): ${fP(div(r.m.ent,r.m.ent+r.m.dev))}`;}},
     legend:LEG,grid:{left:10,right:10,top:36,bottom:4,containLabel:true},
     xAxis:{type:'value',max:100,show:false},
