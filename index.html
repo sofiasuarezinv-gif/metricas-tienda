@@ -645,9 +645,9 @@ function renderDetalle(m,L,M,SH){
     (()=>{ // estado actual de cada pedido, una barra por grupo (cada valor al final de su barra, sin encimarse)
       const e=o=>o.estado||'';
       const ot=[['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Cancelado',o=>isCanc(o),CC.ser],['Devolución',o=>isDev(o),CC.crit],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],
-        ['Procesamiento',o=>/PROCESAMIENTO|RECOGIDO|PREPARAD/.test(e(o)),CC.v],['Oficina',o=>/OFICINA/.test(e(o)),CC.y],['Reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b],['Entregado',o=>isEnt(o),CC.good]];
-      const used=o=>ot.some(([,f])=>f(o)); // tránsito = cualquier otro estado (bodegas, terminal, despachada, novedad…)
-      const G=[...ot.slice(0,5),['Tránsito',o=>!used(o),CC.a],...ot.slice(5)];
+        ['Procesamiento',null,CC.v],['Oficina',o=>/OFICINA/.test(e(o)),CC.y],['Reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b],['Entregado',o=>isEnt(o),CC.good]];
+      const others=ot.filter(x=>x[1]),used=o=>others.some(([,f])=>f(o)); // procesamiento = en procesamiento + en tránsito (cualquier estado que no sea de los otros grupos)
+      ot.find(x=>!x[1])[1]=o=>!used(o);const G=ot;
       const vals=G.map(([n,f])=>L.filter(f).length),tot=L.length||1;
       return box('Estado actual de los pedidos','',ec('ch-estados',{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${p.value} pedidos · ${fP(p.value/tot)}`},
         grid:{left:10,right:110,top:10,bottom:10,containLabel:true},xAxis:{type:'value',show:false,max:Math.max(...vals)*1.05||1},
