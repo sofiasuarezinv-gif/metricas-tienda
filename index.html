@@ -129,6 +129,20 @@
   .modal-x{position:absolute;top:14px;right:14px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:15px}
 </style>
 <style>
+  /* gráficas */
+  .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
+  .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
+  .chartsub{font-size:12px;color:var(--sub);margin-bottom:12px} .chartsub b{color:var(--ink)}
+  .chartgrid{gap:16px}
+  svg.tc{width:100%;height:auto;display:block;margin-top:6px} svg.tc .ax{fill:var(--sub);font:500 10.5px Inter} svg.tc .wv{fill:var(--ink);font:700 11px Inter} svg.tc .hz:hover{fill:rgba(255,255,255,.04)}
+  .lg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--sub);margin-top:10px} .lg span{display:flex;align-items:center;gap:6px} .lg b{color:var(--ink)} .lg i{display:inline-block;width:10px;height:10px;border-radius:3px}
+  .stk{display:flex;gap:2px;height:34px;border-radius:8px;overflow:hidden;margin-top:6px} .stk div{display:flex;align-items:center;justify-content:center;color:#fff;font:800 12px Inter;min-width:3px}
+  .hb{display:flex;flex-direction:column;gap:9px;margin-top:6px} .hbr{display:grid;grid-template-columns:minmax(90px,170px) 1fr auto;gap:10px;align-items:center;font-size:12.5px}
+  .hbl{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hbt{height:16px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden} .hbf{height:100%;border-radius:0 4px 4px 0}
+  .hbv{font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right;white-space:nowrap} .hbv small{display:block;font-size:10.5px;font-weight:600;color:var(--sub)}
+  #tip{position:fixed;pointer-events:none;opacity:0;z-index:99;background:#1c1b2a;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12px;color:var(--ink);box-shadow:var(--shadow);transition:opacity .1s;line-height:1.5}
+  #tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+  @media(max-width:760px){.hbr{grid-template-columns:90px 1fr auto}}
   /* v2: métricas conectadas */
   .syncbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;font-size:12px;color:var(--sub)}
   .chip{background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-weight:600}
@@ -166,6 +180,7 @@
     <div class="brand"><div class="lg">📊</div><div><h1>Métricas Tienda</h1><p>Dropi · Meta · Shopify</p></div></div>
     <nav class="nav">
       <a class="active" id="nav-metricas" onclick="go('metricas')">📊 Métricas</a>
+      <a id="nav-graficas" onclick="go('graficas')">📈 Gráficas</a>
       <a id="nav-proy" onclick="go('proy')">🔮 Proyecciones</a>
       <div class="sep"></div>
       <a id="nav-config" onclick="go('config')">⚙️ Configuración</a>
@@ -188,11 +203,13 @@
       </div>
     </div>
     <div id="view-metricas"></div>
+    <div id="view-graficas" style="display:none"></div>
     <div id="view-proy" style="display:none"></div>
     <div id="view-config" style="display:none"></div>
   </main>
 </div>
 <div class="toast" id="toast"></div>
+<div id="tip"></div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -416,7 +433,7 @@ function syncbar(){
 function render(){
   syncbar();
   $('#rangebar').style.display=VIEW==='config'?'none':'';
-  if(VIEW==='metricas')renderMetricas();else if(VIEW==='proy')renderProy();else renderConfig();
+  if(VIEW==='metricas')renderMetricas();else if(VIEW==='graficas')renderGraficas();else if(VIEW==='proy')renderProy();else renderConfig();
 }
 function renderMetricas(){
   const r=rangeDates();
@@ -471,6 +488,109 @@ function renderMetricas(){
     body=note+h+'</tbody></table></div>';
   }
   $('#view-metricas').innerHTML=head+dimsH+body;
+}
+
+// ───── Gráficas ─────
+// Paleta categórica validada para el fondo oscuro (#101019): azul, naranja, aqua, amarillo. Estado: bueno/alerta/serio/crítico.
+const CC={b:'#3987e5',o:'#d95926',a:'#199e70',y:'#c98500',good:'#0ca30c',warn:'#fab219',ser:'#ec835a',crit:'#d03b3b',gray:'#5b5870',grid:'rgba(255,255,255,.07)'};
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+document.addEventListener('mousemove',e=>{const T=$('#tip');if(!T)return;const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){T.style.opacity=0;return;}
+  T.innerHTML=t.getAttribute('data-tip');T.style.opacity=1;T.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-T.offsetWidth-8))+'px';T.style.top=(e.clientY+16)+'px';});
+const card=(title,body,sub,full)=>`<div class="chartcard"${full?' style="grid-column:1/-1"':''}><div class="charttitle">${title}</div>${sub?`<div class="chartsub">${sub}</div>`:''}${body}</div>`;
+const legend=items=>`<div class="lg">${items.map(([n,c,dash])=>`<span><i style="background:${c}${dash?';height:2px;border-top:2px dashed '+c+';background:none':''}"></i>${n}</span>`).join('')}</div>`;
+
+// barras horizontales: [{l, v, c, txt, sub, tip}]
+function hbars(items,fmt){
+  const max=Math.max(...items.map(i=>Math.abs(i.v)||0),1);
+  return`<div class="hb">${items.map(i=>`<div class="hbr" data-tip="${esc(i.tip||('<b>'+i.l+'</b><br>'+fmt(i.v)))}"><div class="hbl">${i.l}</div><div class="hbt"><div class="hbf" style="width:${Math.max(1.5,Math.abs(i.v||0)/max*100)}%;background:${i.c||CC.b}"></div></div><div class="hbv">${i.txt!=null?i.txt:fmt(i.v)}${i.sub?`<small>${i.sub}</small>`:''}</div></div>`).join('')}</div>`;
+}
+// barra 100% apilada: [{l,v,c}]
+function stack(items){
+  const tot=items.reduce((s,i)=>s+i.v,0)||1;
+  return`<div class="stk">${items.filter(i=>i.v>0).map(i=>`<div style="flex:${i.v};background:${i.c}" data-tip="<b>${esc(i.l)}</b><br>${i.v} pedidos · ${fP(i.v/tot)}">${i.v/tot>=.08?fP(i.v/tot):''}</div>`).join('')}</div>`+
+    legend(items.map(i=>[`${i.l} <b>${i.v}</b>`,i.c]));
+}
+// serie de tiempo: columnas (una serie) o líneas (varias). days = ['YYYY-MM-DD'...], series=[{n,c,v:[...],dash}]
+function timeChart(days,series,fmt,kind,W=420){
+  const H=W>600?230:250,pl=58,pr=10,pt=12,pb=26,iw=W-pl-pr,ih=H-pt-pb;
+  const vals=series.flatMap(s=>s.v).filter(v=>v!=null&&isFinite(v));
+  const mx=Math.max(...vals,0)*1.12||1,n=days.length,bw=iw/Math.max(n,1);
+  const y=v=>pt+ih-(v/mx)*ih,x=i=>pl+bw*i+bw/2;
+  let g='';
+  for(let k=0;k<=4;k++){const v=mx*k/4,yy=y(v);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="${CC.grid}"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" class="ax">${fmt(v)}</text>`;}
+  const step=Math.ceil(n/(W>600?12:6));days.forEach((d,i)=>{if(i%step===0)g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" class="ax">${d.slice(8)}/${d.slice(5,7)}</text>`;});
+  let m='';
+  if(kind==='col'){const s=series[0];s.v.forEach((v,i)=>{if(!v)return;const w=Math.max(2,Math.min(26,bw-3)),yy=y(v);m+=`<path d="M${x(i)-w/2},${pt+ih}V${yy+3}q0,-3 3,-3h${w-6}q3,0 3,3V${pt+ih}Z" fill="${s.c}"/>`;});}
+  else series.forEach(s=>{let p='';s.v.forEach((v,i)=>{if(v==null||!isFinite(v))return;p+=(p&&s.v[i-1]!=null&&isFinite(s.v[i-1])?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1);});
+    m+=`<path d="${p}" fill="none" stroke="${s.c}" stroke-width="2" stroke-linejoin="round"${s.dash?' stroke-dasharray="5 4"':''}/>`;
+    if(n<=45)s.v.forEach((v,i)=>{if(v!=null&&isFinite(v))m+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.c}" stroke="#101019" stroke-width="1.5"/>`;});});
+  // zonas de hover por día
+  let h='';days.forEach((d,i)=>{const tip=`<b>${DOW[new Date(d+'T12:00:00').getDay()]} ${d.slice(8)}/${d.slice(5,7)}</b>`+series.map(s=>`<br><i style="background:${s.c}"></i>${s.n}: <b>${fmt(s.v[i])}</b>`).join('');
+    h+=`<rect x="${pl+bw*i}" y="${pt}" width="${bw}" height="${ih}" fill="transparent" class="hz" data-tip="${esc(tip)}"/>`;});
+  return`<svg viewBox="0 0 ${W} ${H}" class="tc">${g}${m}${h}</svg>`+(series.length>1?legend(series.map(s=>[s.n,s.c,s.dash])):'');
+}
+// cascada de rentabilidad: [{l,v,tipo:'+'|'-'|'='}]
+function waterfall(steps){
+  const W=900,H=280,pl=10,pr=10,pt=26,pb=44,iw=W-pl-pr,ih=H-pt-pb;
+  let run=0;const bars=steps.map(s=>{let a,b;if(s.tipo==='='){a=0;b=s.v;run=s.v;}else if(s.tipo==='+'){a=run;b=run+s.v;run=b;}else{a=run;b=run-s.v;run=b;}return{...s,a,b};});
+  const lo=Math.min(0,...bars.map(b=>Math.min(b.a,b.b))),hi=Math.max(...bars.map(b=>Math.max(b.a,b.b)),1);
+  const y=v=>pt+(hi-v)/(hi-lo)*ih,bw=iw/bars.length,w=Math.min(64,bw*.62);
+  let o=`<line x1="${pl}" x2="${W-pr}" y1="${y(0)}" y2="${y(0)}" stroke="rgba(255,255,255,.25)"/>`;
+  bars.forEach((b,i)=>{const cx=pl+bw*i+bw/2,top=y(Math.max(b.a,b.b)),hgt=Math.max(2,Math.abs(y(b.a)-y(b.b)));
+    const c=b.tipo==='='?(b.v<0?CC.crit:b.last?CC.good:CC.b):b.tipo==='+'?CC.b:CC.gray;
+    o+=`<rect x="${cx-w/2}" y="${top}" width="${w}" height="${hgt}" rx="3" fill="${c}" data-tip="<b>${esc(b.l)}</b><br>${b.tipo==='-'?'−':''}${f$(b.v)}"/>`;
+    o+=`<text x="${cx}" y="${top-7}" text-anchor="middle" class="wv">${b.tipo==='-'?'−':''}${f$(b.v)}</text>`;
+    o+=`<text x="${cx}" y="${H-24}" text-anchor="middle" class="ax">${b.l.split(' ')[0]}</text><text x="${cx}" y="${H-11}" text-anchor="middle" class="ax">${b.l.split(' ').slice(1).join(' ')}</text>`;
+    if(i<bars.length-1&&bars[i+1].tipo!=='=')o+=`<line x1="${cx+w/2}" x2="${cx+bw-w/2}" y1="${y(b.b)}" y2="${y(b.b)}" stroke="rgba(255,255,255,.25)" stroke-dasharray="3 3"/>`;});
+  return`<svg viewBox="0 0 ${W} ${H}" class="tc">${o}</svg>`;
+}
+
+function renderGraficas(){
+  const r=rangeDates();
+  const L=ORDERS.filter(o=>inRange(o.fecha,r)),M=META.filter(m=>inRange(m.fecha,r));
+  const SH={orders:SHOP.orders.filter(o=>inRange(o.fecha,r)),drafts:SHOP.drafts.filter(d=>inRange(d.fecha,r))};
+  const msum=X=>({inv:X.reduce((s,m)=>s+m.inversion,0),ventas:X.reduce((s,m)=>s+m.ventas,0),fac:X.reduce((s,m)=>s+m.facturacion,0)});
+  const m=calc(L,msum(M),SH);
+  const head=`<h2 class="title">📈 Gráficas</h2><p class="muted">${r.from==='2000-01-01'?'Todo el histórico':r.from+' → '+r.to} · pasa el mouse por encima para ver el detalle.</p>`;
+  if(!L.length&&!M.length){$('#view-graficas').innerHTML=head+'<div class="empty">No hay datos en este rango.</div>';return;}
+  // días del rango con datos
+  const ds=[...new Set([...L.map(o=>o.fecha),...M.map(x=>x.fecha)])].sort();
+  const days=[];if(ds.length){for(let d=ds[0];d<=ds[ds.length-1];d=addDays(d,1))days.push(d);}
+  const per=days.map(d=>{const Ld=L.filter(o=>o.fecha===d),Md=msum(M.filter(x=>x.fecha===d));return{inv:Md.inv,vm:Md.ventas,fm:Md.fac,dropi:Ld.length,shop:SH.orders.filter(o=>o.fecha===d).length,prel:SH.drafts.filter(x=>x.fecha===d&&x.valido).length};});
+  const out=[];
+  // 1. estado de pedidos
+  out.push(card('Estado de los pedidos',stack([{l:'Entregados',v:m.ent,c:CC.good},{l:'En proceso',v:m.proc,c:CC.b},{l:'Devueltos',v:m.dev,c:CC.ser},{l:'Cancelados',v:m.canc,c:CC.crit}]),
+    `${m.comp} pedidos · efectividad <b>${fP(div(m.ent,m.desp))}</b> · cancelación <b>${fP(div(m.canc,m.comp))}</b> · devolución <b>${fP(div(m.dev,m.desp))}</b>`));
+  // 2. origen de ventas
+  out.push(card('¿De dónde vienen las ventas?',hbars([{l:'Ventas Meta (reporte)',v:m.ventasMeta,c:CC.b},{l:'Ventas Shopify',v:m.shop.ventas,c:CC.a},{l:'Preliminar recuperado',v:m.shop.conv,c:CC.y},{l:'Manuales',v:m.shop.manual,c:CC.gray},{l:'Total en Dropi',v:m.comp,c:CC.o}],fN)));
+  // 3. inversión diaria
+  out.push(card('Inversión diaria en Meta',timeChart(days,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],f$,'col',900),`Total ${f$(m.inv)} · promedio ${f$(m.inv/Math.max(1,per.filter(p=>p.inv>0).length))} por día con pauta`,1));
+  // 4. ventas por día
+  out.push(card('Ventas por día',timeChart(days,[{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)},{n:'Shopify',c:CC.a,v:per.map(p=>p.shop)},{n:'Dropi',c:CC.o,v:per.map(p=>p.dropi)},{n:'Preliminares',c:CC.y,v:per.map(p=>p.prel),dash:1}],fN)));
+  // 5. CPA por día
+  out.push(card('CPA por día',timeChart(days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?p.inv/p.vm:null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?p.inv/p.dropi:null)}],f$),`CPA Meta ${f$(div(m.inv,m.ventasMeta))} · CPA Dropi ${f$(div(m.inv,m.comp))} en el rango`));
+  // 6. ROAS por día
+  out.push(card('ROAS Meta por día',timeChart(days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?p.fm/p.inv:null)}],fX),`ROAS Meta del rango: <b>${fX(div(m.factMeta,m.inv))}</b>`));
+  // 7. facturación
+  out.push(card('Facturación vs inversión',hbars([{l:'Inversión',v:m.inv,c:CC.gray},{l:'Facturación Meta',v:m.factMeta,c:CC.b},{l:'Fact. incl. preliminares',v:m.factMeta+m.shop.valPrelim,c:CC.b},{l:'Facturación despachada',v:m.factDesp,c:CC.o},{l:'Facturación entregada',v:m.factEnt,c:CC.a},{l:'Dinero ingresado a Dropi',v:m.ingresado,c:CC.y}],f$)));
+  // 8. ROAS comparativo
+  const ro=[['ROAS Meta',div(m.factMeta,m.inv),CC.b],['ROAS incl. preliminares',div(m.factMeta+m.shop.valPrelim,m.inv),CC.b],['ROAS despachado',div(m.factDesp,m.inv),CC.o],['ROAS entregado',div(m.factEnt,m.inv),CC.a],['ROAS recolectado',div(m.ingresado,m.inv),CC.y]];
+  out.push(card('ROAS',hbars(ro.map(([l,v,c])=>({l,v:v||0,c,txt:fX(v)})),fX),'Recolectado = lo que de verdad entró a Dropi ÷ inversión. Por debajo de 1,00x se pierde plata.'));
+  // 9. preliminares
+  const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
+  out.push(card('Preliminares',hbars([{l:'Preliminares',v:m.shop.prelim||0,c:CC.y},{l:'Recuperados',v:m.shop.conv,c:CC.y,sub:fP(div(m.shop.prelimConvD,m.shop.prelim))+' conversión'},{l:'Entregados',v:pe,c:CC.good,sub:fP(m.shop.efPrelim)+' efectividad'}],fN)));
+  // 10. CPA comparativo
+  out.push(card('CPA',hbars([{l:'CPA Meta',v:div(m.inv,m.ventasMeta)||0,c:CC.b,sub:fP(div(m.inv,m.factMeta))},{l:'CPA Dropi',v:div(m.inv,m.comp)||0,c:CC.o,sub:fP(div(m.inv,m.valDropi))},{l:'CPA despachado',v:div(m.inv,m.desp)||0,c:CC.o},{l:'CPA entregado',v:div(m.inv,m.ent)||0,c:CC.a}],f$)));
+  // 11. cascada de rentabilidad
+  out.push(card('¿A dónde se va la plata? (rentabilidad)',waterfall([{l:'Facturación entregada',v:m.factEnt,tipo:'='},{l:'Costo proveedores',v:m.cProv,tipo:'-'},{l:'Fletes entregas',v:m.cTransp-L.filter(isDev).reduce((s,o)=>s+flete(o),0),tipo:'-'},{l:'Fletes devoluciones',v:L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0),tipo:'-'},{l:'Dinero ingresado',v:m.ingresado,tipo:'='},{l:'Inversión Meta',v:m.inv,tipo:'-'},{l:'Ganancia neta',v:m.gan,tipo:'=',last:1}]),
+    `Ganancia en camino: <b>${f$(m.ganProc)}</b> si se entregan los ${m.proc} pedidos en proceso (esperada ${f$(m.ganProcEsp)})`,1));
+  // 12. transportadoras y productos y ciudades (efectividad)
+  const efBars=G=>hbars(G.filter(g=>g.list.length).map(g=>{const c=calc(g.list,{});const e=div(c.ent,c.desp);return{l:g.label||g.name,v:c.comp,c:CC.b,txt:fN(c.comp),sub:(e==null?'—':fP(e))+' efect.',tip:`<b>${esc(g.name)}</b><br>${c.comp} pedidos · ${c.ent} entregados · ${c.dev} devueltos · ${c.canc} cancelados<br>Efectividad ${fP(e)}`};}),fN);
+  out.push(card('Por transportadora',efBars(groupsFor('transp',L,[])),'Pedidos y % de efectividad'));
+  out.push(card('Por producto',efBars(groupsFor('producto',L,[])),'Pedidos y % de efectividad'));
+  out.push(card('Ciudades principales',efBars(groupsFor('ciudad',L,[])),'Pedidos y % de efectividad'));
+  out.push(card('Fin de semana vs entre semana',efBars(groupsFor('semana',L,[])),'Pedidos y % de efectividad'));
+  $('#view-graficas').innerHTML=head+`<div class="chartgrid">${out.join('')}</div>`;
 }
 
 // ───── Proyecciones ─────
@@ -569,7 +689,7 @@ async function setFlete(t,v){const f=Object.assign({},CFG.fletes||{});f[t]=+v;aw
 async function setProd(mp,v){const m=Object.assign({},CFG.prod_map||{});m[mp]=v;await saveCfg({prod_map:m});toast('Producto asignado');}
 async function refreshMeta(){toast('Actualizando Meta…');try{const r=await fetch('/api/refresh-meta',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const j=await r.json();if(!r.ok)throw new Error(j.detail||'error');await load();toast('Meta actualizado ('+j.filas+' filas)');}catch(e){toast(e.message);}}
 
-function go(v){VIEW=v;['metricas','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
+function go(v){VIEW=v;['metricas','graficas','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
 async function load(){
   $('#view-metricas').innerHTML='<div class="empty">Cargando datos…</div>';
   try{
