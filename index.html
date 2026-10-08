@@ -614,16 +614,45 @@ function renderDetalle(m,L,M,SH){
     box('Embudo de preliminares','Checkouts abandonados del formulario → recuperados en Dropi → entregados',funnel('ch-prel',[{name:'Preliminares',value:m.shop.prelim||0,c:CC.y},{name:'Recuperados',value:m.shop.conv,c:CC.o},{name:'Entregados',value:pe,c:CC.good}]))+
     box('Conversión y efectividad','',gauges('ch-prel-g',[{name:'% conversión',v:m.shop.prelim==null?null:div(m.shop.prelimConvD,m.shop.prelim),c:CC.y},{name:'% efectividad',v:m.shop.efPrelim,c:CC.good}])));
   // 💵 ROAS
-  h+=sec('💵 ROAS',
-    box('Inversión vs facturación','',bars('ch-fact',['Inversión','Facturación Meta','Fact. incl. preliminares','Facturación despachada','Facturación entregada','Dinero ingresado a Dropi'],[m.inv,m.factMeta,m.factMeta+m.shop.valPrelim,m.factDesp,m.factEnt,m.ingresado],[CC.crit,CC.b,CC.b,CC.o,CC.good,CC.y],fM,{horizontal:1,h:300}))+
-    (()=>{const rv=[['ROAS Meta',m.factMeta,'Facturación Meta'],['ROAS entregado',m.factEnt,'Facturación entregada'],['ROAS recolectado',m.ingresado,'Dinero ingresado a Dropi'],['ROAS incl. preliminares',m.factMeta+m.shop.valPrelim,'Fact. Meta + preliminares'],['ROAS despachado',m.factDesp,'Facturación despachada']];
-      const rx=rv.map(r=>div(r[1],m.inv));
-      // lo recibido en Dropi (venta − proveedor − flete) de los pedidos que cuenta cada ROAS; entregado y recolectado ya entraron, los demás si se entregan
-      const net=o=>(o.venta||0)-(o.proveedor||0)-flete(o),sumN=A=>A.reduce((s,o)=>s+net(o),0),vivos=L.filter(o=>!isCanc(o));
-      const rec=[sumN(vivos.filter(o=>o.origen==='shopify')),sumN(L.filter(isEnt)),m.ingresado,sumN(vivos.filter(o=>o.origen==='shopify'||o.origen==='preliminar')),sumN(vivos)];
-      const recTxt=['de pedidos de la tienda, si se entregan','ya entró de los entregados','ya entró (entregados − devoluciones)','de tienda + preliminares, si se entregan','de todos los despachados, si se entregan'];
-      return box('ROAS',`% recolectado <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada) · debajo de cada ROAS: lo que se recibe en Dropi (venta − proveedor − flete) · inversión ${f$(m.inv)} · línea roja = 1,00x`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
-        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(rec[i])),extra:rv.map((r,i)=>'Recibido: <b>'+f$(rec[i])+'</b> ('+recTxt[i]+')<br>'+r[2]+': '+f$(r[1])+'<br>Inversión: '+f$(m.inv))}));})());
+  h+=sec('💵 ROAS',(()=>{
+    // 1) Por cada $1 invertido: cómo se encoge el retorno desde lo que reporta Meta hasta lo que entra a Dropi
+    const st=[
+      {n:'Meta reporta',v:m.factMeta,why:'Ventas que Meta se atribuye (facturación Meta)'},
+      {n:'+ preliminares',v:m.factMeta+m.shop.valPrelim,why:'Le sumas los preliminares recuperados'},
+      {n:'Despachado',v:m.factDesp,why:'Lo que de verdad salió en Dropi (sin cancelados)'},
+      {n:'Entregado',v:m.factEnt,why:'Lo que el cliente recibió y pagó (los en camino aún no cuentan)'},
+      {n:'Te entra a Dropi',v:m.ingresado,why:'Entregados − proveedor − fletes − fletes de devoluciones'}];
+    const r=st.map(s=>div(s.v,m.inv)||0);
+    const lost=(i)=>i&&r[i-1]?(r[i]-r[i-1])/r[i-1]:null;
+    const col=v=>v<1?CC.crit:v<1.5?CC.y:CC.b;
+    const c1=ec('ch-roas-flow',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const i=p[0].dataIndex,s=st[i];
+        return`<b>${s.n}</b><br>Por cada $1 invertido: <b>$${r[i].toLocaleString('es-CO',{maximumFractionDigits:2})}</b> (ROAS ${fX(r[i])})<br>Total: ${f$(s.v)} sobre ${f$(m.inv)} invertidos<br><span style="color:#948fb0">${s.why}</span>`+(lost(i)!=null?`<br>Cambio vs paso anterior: <b>${lost(i)>0?'+':''}${fP(lost(i))}</b>`:'');}},
+      grid:{left:10,right:20,top:48,bottom:10,containLabel:true},
+      xAxis:{type:'category',data:st.map(s=>s.n),...AX,axisLabel:{...AX.axisLabel,color:'#ece9f5',fontWeight:700,fontSize:12,interval:0}},
+      yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:v=>'$'+v}},
+      series:[{type:'bar',barWidth:'46%',data:r.map(v=>({value:+v.toFixed(2),itemStyle:{color:col(v),borderRadius:[8,8,0,0]}})),
+        label:{show:true,position:'top',formatter:p=>{const l=lost(p.dataIndex);return`{v|$${p.value.toLocaleString('es-CO',{minimumFractionDigits:2})}}`+(l!=null?`\n{${l>0?'u':'d'}|${l>0?'+':''}${Math.round(l*100)}%}`:'');},
+          rich:{v:{color:'#ece9f5',fontWeight:800,fontSize:15,lineHeight:20},d:{color:'#f87171',fontWeight:700,fontSize:11},u:{color:'#34d399',fontWeight:700,fontSize:11}}},
+        markLine:{symbol:'none',silent:true,lineStyle:{color:'#f87171',type:'dashed',width:1.5},label:{position:'insideStartTop',color:'#f87171',fontWeight:700,formatter:'$1 invertido'},data:[{yAxis:1}]}}]},330);
+    // 2) ROAS que necesitas para no perder (cuando lo que entra a Dropi = inversión) vs el que tienes
+    const k=div(m.ingresado,m.factEnt); // de cada $1 entregado, cuánto entra a Dropi
+    const rows=[{n:'ROAS Meta',act:div(m.factMeta,m.inv),min:m.ingresado>0?div(m.factMeta,m.ingresado):null},
+      {n:'ROAS entregado',act:div(m.factEnt,m.inv),min:k?1/k:null},
+      {n:'ROAS recolectado',act:div(m.ingresado,m.inv),min:1}];
+    const gap=x=>x.act!=null&&x.min?x.act/x.min-1:null;
+    const c2=ec('ch-roas-min',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const x=rows[p[0].dataIndex],g=gap(x);
+        return`<b>${x.n}</b><br>Tienes: <b>${fX(x.act)}</b><br>Mínimo para no perder: <b>${fX(x.min)}</b><br>${g==null?'':g>=0?'Estás '+fP(g)+' por encima ✅':'Te falta '+fP(-g)+' para quedar en cero'}`;}},
+      legend:LEG,grid:{left:10,right:90,top:40,bottom:6,containLabel:true},
+      xAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:v=>v+'x'}},
+      yAxis:{type:'category',inverse:true,data:rows.map(x=>x.n),...AX,axisLabel:{...AX.axisLabel,color:'#ece9f5',fontWeight:700,fontSize:12.5}},
+      series:[{name:'El que tienes',type:'bar',barWidth:16,barGap:'40%',data:rows.map(x=>({value:x.act==null?0:+x.act.toFixed(2),itemStyle:{color:gap(x)!=null&&gap(x)<0?CC.crit:CC.good,borderRadius:[0,6,6,0]}})),
+          label:{show:true,position:'right',formatter:p=>{const g=gap(rows[p.dataIndex]);return`{a|${fX(p.value)}}  `+(g==null?'':`{${g<0?'n':'p'}|${g<0?'falta '+fP(-g):'+'+fP(g)}}`);},rich:{a:{color:'#ece9f5',fontWeight:800,fontSize:12.5},n:{color:'#f87171',fontWeight:700,fontSize:11},p:{color:'#34d399',fontWeight:700,fontSize:11}}}},
+        {name:'Mínimo para no perder',type:'bar',barWidth:16,data:rows.map(x=>x.min==null?0:+x.min.toFixed(2)),itemStyle:{color:'rgba(255,255,255,.18)',borderColor:'rgba(255,255,255,.45)',borderType:'dashed',borderWidth:1,borderRadius:[0,6,6,0]},
+          label:{show:true,position:'right',color:'#948fb0',fontWeight:700,formatter:p=>fX(p.value)}}]},300);
+    const rec=div(m.ingresado,m.factDesp);
+    return box('Por cada $1 que inviertes en Meta',`Así se encoge el retorno desde lo que reporta Meta hasta lo que de verdad te entra · el % rojo es lo que se pierde en cada paso · % recolectado ${fP(rec)}`,c1,1)+
+      box('¿Te alcanza el ROAS?',`ROAS mínimo para no perder plata (cuando lo que entra a Dropi = inversión) vs el que tienes · de cada $1 entregado te quedan ${k==null?'—':'$'+k.toLocaleString('es-CO',{maximumFractionDigits:2})}`,c2,1);
+  })());
   // 💰 Rentabilidad
   const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDevIda=L.filter(isDev).reduce((s,o)=>s+flete(o),0);
   const costos=[{n:'Proveedores',v:m.cProv,c:CC.o},{n:'Fletes de entregas',v:fEnt,c:CC.v},{n:'Fletes de devoluciones',v:fDevIda+m.cDev,c:CC.ser},{n:'Publicidad Meta',v:m.inv,c:CC.b}];
