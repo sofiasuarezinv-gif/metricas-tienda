@@ -618,11 +618,6 @@ function renderDetalle(m,L,M,SH){
   // 💰 Rentabilidad
   const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDevIda=L.filter(isDev).reduce((s,o)=>s+flete(o),0);
   const costos=[{n:'Proveedores',v:m.cProv,c:CC.o},{n:'Fletes de entregas',v:fEnt,c:CC.v},{n:'Fletes de devoluciones',v:fDevIda+m.cDev,c:CC.ser},{n:'Publicidad Meta',v:m.inv,c:CC.b}];
-  // ganancia por día (según la fecha del pedido): lo que entró de los pedidos cerrados de ese día − inversión del día
-  const esp=o=>m.efC*((o.venta||0)-(o.proveedor||0)-flete(o))-(1-m.efC)*(flete(o)+devFlete(o));
-  const gd=days.map((d,i)=>Math.round(L.filter(o=>o.fecha===d).reduce((s,o)=>s+(recibido(o)||0),0)-per[i].inv));
-  const ge=days.map(d=>Math.round(L.filter(o=>o.fecha===d&&!isCanc(o)&&!isEnt(o)&&!isDev(o)).reduce((s,o)=>s+esp(o),0)));
-  let acc=0,acc2=0;const gacc=gd.map(v=>acc+=v),gproy=gd.map((v,i)=>acc2+=v+ge[i]);
   const ticket=div(m.factEnt,m.ent)||0,unit=[['Proveedor',div(m.cProv,m.ent),CC.o],['Flete',div(fEnt+fDevIda,m.ent),CC.v],['Devoluciones',div(m.cDev,m.ent),CC.ser],['Publicidad',div(m.inv,m.ent),CC.b],[m.gan<0?'Pérdida':'Ganancia',div(m.gan,m.ent),m.gan<0?CC.crit:CC.good]];
   h+=sec('💰 Rentabilidad'+(m.est?'<span class="esttag">algunos fletes estimados</span>':''),
     box('Ingresos vs costos',`Pedidos entregados · ${m.gan<0?'pérdida':'ganancia'} neta <b style="color:${m.gan<0?'var(--red)':'var(--green)'}">${f$(m.gan)}</b> · margen ${fP(div(m.gan,m.ingresado))}`,
@@ -636,15 +631,6 @@ function renderDetalle(m,L,M,SH){
             label:{show:c.v>0,position:'right',distance:10,color:'#ece9f5',fontWeight:700,fontSize:12,formatter:p=>p.dataIndex!==1?'':`{d|●} ${c.n} · ${fM(c.v)}`,rich:{d:{color:c.c,fontSize:14}}}};}))
           .concat([{name:'_total',type:'bar',stack:'p',data:[0,0],tooltip:{show:false},label:{show:true,position:'top',color:'#ece9f5',fontWeight:800,fontSize:13,formatter:p=>p.dataIndex?'Costos '+f$(m.costos):'Ingresos '+f$(m.factEnt)}}])},360))+
     box('¿En qué se va cada peso?','Reparto de la facturación entregada',donut('ch-reparto',costos.map(c=>({name:c.n,value:Math.round(c.v),c:c.c})).concat(m.gan>0?[{name:'Ganancia',value:Math.round(m.gan),c:CC.good}]:[]),fP(div(m.gan,m.factEnt)),m.gan<0?'pérdida sobre ventas':'ganancia sobre ventas',340,1))+
-    box('Ganancia día a día','Verde/rojo = lo que ya entró de los pedidos de ese día − la inversión del día · claro = lo que se espera de los que siguen en camino (efectividad '+fP(m.efC)+') · líneas = acumulado',
-      ec('ch-gan-dia',{tooltip:{trigger:'axis',valueFormatter:v=>f$(v)},legend:LEG,grid:{left:70,right:96,top:36,bottom:days.length>14?62:30},
-        dataZoom:days.length>14?[{type:'inside'},{type:'slider',height:18,bottom:8,borderColor:'#2a2840',fillerColor:'rgba(124,92,255,.18)',handleStyle:{color:'#7c5cff'},textStyle:{color:'#948fb0'}}]:[],
-        xAxis:{type:'category',data:days.map(d=>DOW[new Date(d+'T12:00:00').getDay()]+' '+d.slice(8)+'/'+d.slice(5,7)),...AX,axisLabel:{...AX.axisLabel,hideOverlap:true}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
-        series:[{name:'Ganancia ya realizada',type:'bar',stack:'g',barMaxWidth:24,data:gd.map(v=>({value:v,itemStyle:{color:v<0?CC.crit:CC.good}}))},
-          {name:'Esperada en camino',type:'bar',stack:'g',barMaxWidth:24,data:ge,itemStyle:{color:'rgba(12,163,12,.38)',borderRadius:[4,4,0,0]}},
-          {name:'Acumulada realizada',type:'line',smooth:.3,showSymbol:false,data:gacc,lineStyle:{width:2,color:CC.ser},itemStyle:{color:CC.ser}},
-          {name:'Acumulada con lo en camino',type:'line',smooth:.3,showSymbol:false,data:gproy,lineStyle:{width:3,color:CC.b},itemStyle:{color:CC.b},areaStyle:{color:grad(CC.b)},
-            endLabel:{show:true,color:'#ece9f5',fontWeight:800,formatter:p=>f$(p.value)},markLine:{symbol:'none',silent:true,lineStyle:{color:'rgba(255,255,255,.3)'},label:{show:false},data:[{yAxis:0}]}}]},360),1)+
     box('Así se reparte un pedido entregado promedio',`Precio de venta promedio <b>${f$(ticket)}</b> · ingreso a Dropi por entregado ${f$(div(m.ingresado,m.ent))}`,
       ec('ch-unit',{tooltip:{trigger:'item',formatter:p=>`<b>${p.seriesName}</b><br>${f$(p.value)} por pedido · ${fP(div(Math.abs(p.value),ticket))} del precio`},legend:{...LEG,top:'bottom'},
         grid:{left:10,right:20,top:10,bottom:50,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},yAxis:{type:'category',data:['Pedido promedio'],...AX,axisLabel:{show:false}},
