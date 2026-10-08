@@ -570,13 +570,22 @@ function dayBars(id,days,keep,series,fmt,h){
 }
 // barras apiladas por grupo (entregados / en proceso / devueltos / cancelados)
 function estadoPorGrupo(id,G,h){
+  // cada fila al 100%: % de entregados / en proceso / devueltos / cancelados; a la izquierda nombre + pedidos, a la derecha la efectividad
   const rows=G.filter(g=>g.list.length).map(g=>({n:g.label||g.name,m:calc(g.list,{})}));
   const S=[['Entregados',r=>r.m.ent,CC.good],['En proceso',r=>r.m.proc,CC.b],['Devueltos',r=>r.m.dev,CC.ser],['Cancelados',r=>r.m.canc,CC.crit]];
-  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos<br>`+p.map(x=>`${x.marker}${x.seriesName}: <b>${x.value}</b>`).join('<br>')+`<br>Efectividad: <b>${fP(div(r.m.ent,r.m.desp))}</b>`;}},
-    legend:LEG,grid:{left:10,right:60,top:34,bottom:6,containLabel:true},
-    xAxis:{type:'value',...AX},yAxis:{type:'category',inverse:true,data:rows.map(r=>r.n),...AX,axisLabel:{...AX.axisLabel,width:130,overflow:'truncate'}},
-    series:S.map(([n,f,c],i)=>({name:n,type:'bar',stack:'t',barMaxWidth:24,data:rows.map(f),itemStyle:{color:c,borderRadius:i===3?[0,5,5,0]:0},emphasis:{focus:'series'},
-      label:i===3?{show:true,position:'right',color:'#ece9f5',fontWeight:700,formatter:p=>fP(div(rows[p.dataIndex].m.ent,rows[p.dataIndex].m.desp))}:undefined}))},h||Math.max(170,rows.length*42+60));
+  const ef=r=>div(r.m.ent,r.m.desp); // misma efectividad que el resto del dashboard (entregados ÷ despachados)
+  const efc=v=>v==null?'#948fb0':v>=.8?'#34d399':v>=.65?'#fab219':'#f87171';
+  const nm=s=>{s=String(s).replace(/ \((lun-vie|sáb-dom)\)/,'');return s.length>22?s.slice(0,21)+'…':s;};
+  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos<br>`+S.map(([n,f,c])=>`<span style="color:${c}">●</span> ${n}: <b>${f(r)}</b> (${fP(div(f(r),r.m.comp))})`).join('<br>')+
+      `<br>Efectividad (entregados ÷ despachados): <b>${fP(ef(r))}</b><br>Solo pedidos ya cerrados (entregados ÷ entregados+devueltos): ${fP(div(r.m.ent,r.m.ent+r.m.dev))}`;}},
+    legend:LEG,grid:{left:10,right:10,top:36,bottom:4,containLabel:true},
+    xAxis:{type:'value',max:100,show:false},
+    yAxis:[{type:'category',inverse:true,data:rows.map((r,i)=>i),...AX,axisLine:{show:false},axisLabel:{formatter:i=>`{n|${nm(rows[i].n)}}\n{s|${rows[i].m.comp} pedidos}`,rich:{n:{color:'#ece9f5',fontWeight:700,fontSize:12.5,lineHeight:18,align:'right'},s:{color:'#948fb0',fontSize:11,align:'right'}}}},
+      {type:'category',inverse:true,data:rows.map((r,i)=>i),position:'right',axisLine:{show:false},axisTick:{show:false},
+        axisLabel:{formatter:i=>{const v=ef(rows[i]);return`{e${i}|${v==null?'—':fP(v)}}\n{s|efectividad}`;},rich:Object.assign({s:{color:'#948fb0',fontSize:10.5,align:'left'}},...rows.map((r,i)=>({['e'+i]:{color:efc(ef(r)),fontWeight:800,fontSize:16,lineHeight:20,align:'left'}})))}}],
+    series:S.map(([n,f,c],i)=>({name:n,type:'bar',stack:'t',barWidth:26,data:rows.map(r=>+(100*f(r)/(r.m.comp||1)).toFixed(1)),
+      itemStyle:{color:c,borderRadius:i===0?[6,0,0,6]:i===3?[0,6,6,0]:0,borderColor:'#101019',borderWidth:1},emphasis:{focus:'series'},
+      label:{show:true,color:'#fff',fontWeight:800,fontSize:11.5,formatter:p=>p.value>=9?Math.round(p.value)+'%':''}}))},h||Math.max(170,rows.length*54+56));
 }
 
 // detalle de General: cada sección con sus gráficas
@@ -645,7 +654,7 @@ function renderDetalle(m,L,M,SH){
     box('Ventas por comentarios',m.cm.n?`Efectividad ${fP(div(m.cm.e,m.cm.n))}`:'',m.cm.n?donut('ch-com',[{name:'Entregados',value:m.cm.e,c:CC.good},{name:'Devueltos',value:m.cm.v,c:CC.ser},{name:'Cancelados',value:m.cm.c,c:CC.crit}],fN(m.cm.n),'pedidos',280):'<div class="empty" style="padding:40px">Aún no hay pedidos marcados como "comentarios de Facebook"</div>'));
   // 📍 Distribución
   h+=sec('📍 Por transportadora, producto, ciudad y día de la semana',
-    box('Por transportadora','Pasa el mouse para ver la efectividad',estadoPorGrupo('ch-g-tr',groupsFor('transp',L,[])))+
+    box('Por transportadora','Cada barra = 100% de sus pedidos · a la derecha la efectividad (verde ≥80%, amarillo ≥65%, rojo menos)',estadoPorGrupo('ch-g-tr',groupsFor('transp',L,[])))+
     box('Por producto','',estadoPorGrupo('ch-g-pr',groupsFor('producto',L,[])))+
     box('Ciudades principales','',estadoPorGrupo('ch-g-ci',groupsFor('ciudad',L,[])))+
     box('Fin de semana vs entre semana','',estadoPorGrupo('ch-g-se',groupsFor('semana',L,[]))));
