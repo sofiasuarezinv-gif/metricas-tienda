@@ -179,6 +179,7 @@
   @media(max-width:900px){.cpa-arrow{min-width:100%;flex-direction:row;gap:6px;padding:6px 0}.cpa-card{min-width:100%}}
   /* solo datos: sin textos explicativos */
   .stat .f,.chartsub,.pl-d,.pl-ks,.esttag,.cpa-arrow small{display:none!important}
+  .cpa-row.solo .cpa-b,.cpa-row.solo .cpa-g,.cpa-row.solo .cpa-m,.cpa-row.solo .cpa-n{display:none}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -661,13 +662,13 @@ function renderDetalle(m,L,M,SH){
       return (i?`<div class="cpa-arrow"><span style="color:${ch!=null&&ch<=0?'#34d399':'#f87171'}">${ch==null?'':(ch>0?'+':'')+fP(ch)}</span>➜</div>`:'')+
       `<div class="cpa-card" data-tip="<b>${s.l}</b><br>Inversión ${f$(m.inv)} ÷ ${s.base} ${s.bl} = <b>${f$(s.v)}</b><br>Máximo para no perder: <b>${f$(s.max)}</b><br><span style=&quot;color:#948fb0&quot;>Máximo = lo que dejan los pedidos (ya entró + lo esperado de los ${m.proc} en camino) ÷ ${s.ent?'entregados esperados al cerrar':s.bl}</span>">
         <div class="cpa-top"><span class="cpa-dot" style="background:${s.c}"></span>${s.l}</div>
-        <div class="cpa-v">${f$(s.v)}</div>
+        <div class="cpa-v">${f$(s.v)}</div>${s.pc!=null?`<div class="stat" style="all:unset"><div class="pc">${fP(s.pc)}<small>% CPA</small></div></div>`:""}
         <div class="cpa-b">${fN(s.base)} ${s.bl}${s.pc!=null?` · <b>${fP(s.pc)}</b> ${s.pcl.replace('% ','')}`:''}</div>
         <div class="cpa-g"><div class="cpa-gt"><div style="width:${fill}%;background:${col}"></div><i style="left:${100/1.5}%"></i></div></div>
         <div class="cpa-m"><span>Máx. sin perder <b>${f$(s.max)}</b></span><span style="color:${col};font-weight:800">${s.r==null?'':ok?'✓ '+fP(1-s.r)+' de margen':'✗ te pasas '+fP(s.r-1)}</span></div>
         ${s.ent&&m.proc?`<div class="cpa-n">Al cerrar los ${m.proc} en camino: ~<b>${f$(div(m.inv,expEnt))}</b></div>`:''}
       </div>`;};
-    h+=sec('🎯 CPA',box('¿Cuánto te cuesta en publicidad cada pedido?',`Cada etapa se encarece porque se pierden pedidos (cancelados, devueltos, en camino) · la rayita blanca = el máximo que aguantas sin perder`,`<div class="cpa-row">${st.map(card).join('')}</div>`,1)+
+    h+=sec('🎯 CPA',box('¿Cuánto te cuesta en publicidad cada pedido?',`Cada etapa se encarece porque se pierden pedidos (cancelados, devueltos, en camino) · la rayita blanca = el máximo que aguantas sin perder`,`<div class="cpa-row solo">${st.map(card).join('')}</div>`,1)+
       box('CPA por etapa vs máximo sin perder',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,
         ec('ch-cpa',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:v=>f$(v)},legend:LEG,grid:{left:10,right:16,top:44,bottom:10,containLabel:true},
           xAxis:{type:'category',data:st.map(s=>s.l),...AX,axisLabel:{...AX.axisLabel,color:'#ece9f5',fontWeight:700,fontSize:12}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
