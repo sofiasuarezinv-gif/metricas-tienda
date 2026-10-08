@@ -308,34 +308,39 @@ const METRICS=[
  {l:'% de cancelación',f:m=>div(m.canc,m.comp),t:'%',d:'Cancelados ÷ completos'},
  {l:'% de devoluciones',f:m=>div(m.dev,m.desp),t:'%',d:'Devueltos ÷ despachados'},
  {l:'% despachados',f:m=>div(m.desp,m.comp),t:'%',d:'Despachados ÷ completos'},
- {s:'📣 Ventas y Meta'},
+ {s:'🛒 Ventas'},
  {l:'Ventas de Meta',f:m=>m.ventasMeta,t:'n',d:'Compras atribuidas por Meta'},
  {l:'Ventas Shopify',f:m=>m.shop.ventas,t:'n',d:'Pedidos que entraron por la tienda Shopify'},
+ {l:'Preliminar recuperado',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar (mismo teléfono)'},
+ {l:'Ventas Dropi sin preliminares',f:m=>m.comp-m.shop.conv,t:'n',d:'Ventas Dropi − preliminares recuperados'},
  {l:'Ventas en Dropi',f:m=>m.comp,t:'n',d:'Pedidos registrados en Dropi'},
- {l:'Inversión en Meta',f:m=>m.inv,t:'$',d:'Gasto total en Meta'},
- {l:'CPA Meta',f:m=>div(m.inv,m.ventasMeta),t:'$',d:'Inversión ÷ ventas Meta'},
- {l:'% CPA Meta',f:m=>div(m.inv,m.factMeta),t:'%',d:'Inversión ÷ valor de conversión Meta'},
- {l:'Preliminares',f:m=>m.shop.prelim,t:'n',d:'Pedidos preliminares de Shopify (checkouts abandonados del formulario), sin duplicados'},
- {l:'CPA Dropi',f:m=>div(m.inv,m.comp),t:'$',d:'Inversión ÷ ventas en Dropi'},
- {l:'% CPA Dropi',f:m=>div(m.inv,m.valDropi),t:'%',d:'Inversión ÷ valor de ventas Dropi'},
- {l:'CPA entregado',f:m=>div(m.inv,m.ent),t:'$',d:'Inversión ÷ entregados'},
- {l:'CPA despachado',f:m=>div(m.inv,m.desp),t:'$',d:'Inversión ÷ despachados'},
- {l:'Ventas Dropi sin preliminares',f:m=>m.comp-m.shop.conv,t:'n',d:'Ventas Dropi − preliminares convertidos'},
- {l:'Preliminares convertidos',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar (mismo teléfono)'},
- {l:'% conversión de preliminares',f:m=>m.shop.prelim==null?null:div(m.shop.prelimConvD,m.shop.prelim),t:'%',d:'Preliminares recuperados ÷ preliminares'},
- {l:'% efectividad de preliminares',f:m=>m.shop.efPrelim,t:'%',d:'Entregados ÷ despachados de los preliminares que están en Dropi'},
  {l:'% efectividad ventas Meta',f:m=>m.shop.efMeta,t:'%',d:'Entregados ÷ despachados de los pedidos que entraron por la tienda (tráfico de Meta)'},
  {l:'Pedidos manuales',f:m=>m.shop.manual,t:'n',d:'En Dropi sin pedido de Shopify ni preliminar'},
- {s:'💵 ROAS y facturación'},
- {l:'ROAS Meta',f:m=>div(m.factMeta,m.inv),t:'x',d:'Facturación Meta ÷ inversión'},
- {l:'ROAS incluyendo preliminares',f:m=>div(m.factMeta+m.shop.valPrelim,m.inv),t:'x',d:'(Fact. Meta + valor de preliminares convertidos) ÷ inversión'},
- {l:'ROAS despachado',f:m=>div(m.factDesp,m.inv),t:'x',d:'Facturación despachada ÷ inversión'},
- {l:'ROAS entregado',f:m=>div(m.factEnt,m.inv),t:'x',d:'Facturación entregada ÷ inversión'},
- {l:'ROAS recolectado',f:m=>div(m.ingresado,m.inv),t:'x',d:'Dinero ingresado a Dropi ÷ inversión'},
+ {s:'🎯 CPA'},
+ {l:'CPA Meta',f:m=>div(m.inv,m.ventasMeta),t:'$',d:'Inversión ÷ ventas Meta'},
+ {l:'% CPA Meta',f:m=>div(m.inv,m.factMeta),t:'%',d:'Inversión ÷ valor de conversión Meta'},
+ {l:'CPA Dropi',f:m=>div(m.inv,m.comp),t:'$',d:'Inversión ÷ ventas en Dropi'},
+ {l:'% CPA Dropi',f:m=>div(m.inv,m.valDropi),t:'%',d:'Inversión ÷ valor de ventas Dropi'},
+ {l:'CPA despachado',f:m=>div(m.inv,m.desp),t:'$',d:'Inversión ÷ despachados'},
+ {l:'CPA entregado',f:m=>div(m.inv,m.ent),t:'$',d:'Inversión ÷ entregados'},
+ {s:'🧾 Preliminares'},
+ {l:'Preliminares total',f:m=>m.shop.prelim,t:'n',d:'Pedidos preliminares de Shopify (checkouts abandonados del formulario), sin duplicados'},
+ {l:'Preliminar recuperado',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar'},
+ {l:'% conversión preliminar',f:m=>m.shop.prelim==null?null:div(m.shop.prelimConvD,m.shop.prelim),t:'%',d:'Preliminares recuperados ÷ preliminares'},
+ {l:'% efectividad preliminar',f:m=>m.shop.efPrelim,t:'%',d:'Entregados ÷ despachados de los preliminares que están en Dropi'},
+ {s:'💵 ROAS'},
+ {l:'Inversión',f:m=>m.inv,t:'$',d:'Gasto total en Meta'},
  {l:'Facturación Meta',f:m=>m.factMeta,t:'$',d:'Valor de conversión de Meta'},
- {l:'Facturación incluyendo preliminares',f:m=>m.factMeta+m.shop.valPrelim,t:'$',d:'Fact. Meta + valor de preliminares convertidos'},
+ {l:'Facturación incluyendo preliminares',f:m=>m.factMeta+m.shop.valPrelim,t:'$',d:'Fact. Meta + valor de preliminares recuperados'},
  {l:'Facturación despachada',f:m=>m.factDesp,t:'$',d:'Valor de pedidos despachados'},
  {l:'Facturación entregada',f:m=>m.factEnt,t:'$',d:'Valor de pedidos entregados'},
+ {r:1},
+ {l:'ROAS Meta',f:m=>div(m.factMeta,m.inv),t:'x',d:'Facturación Meta ÷ inversión'},
+ {l:'ROAS entregado',f:m=>div(m.factEnt,m.inv),t:'x',d:'Facturación entregada ÷ inversión'},
+ {l:'ROAS recolectado',f:m=>div(m.ingresado,m.inv),t:'x',d:'Dinero ingresado a Dropi ÷ inversión'},
+ {l:'ROAS incluyendo preliminares',f:m=>div(m.factMeta+m.shop.valPrelim,m.inv),t:'x',d:'(Fact. Meta + preliminares recuperados) ÷ inversión'},
+ {l:'ROAS despachado',f:m=>div(m.factDesp,m.inv),t:'x',d:'Facturación despachada ÷ inversión'},
+ {r:1},
  {l:'% recolectado',f:m=>div(m.ingresado,m.factDesp),t:'%',d:'Dinero ingresado ÷ facturación despachada'},
  {s:'💰 Rentabilidad',est:true},
  {l:'Dinero ingresado a Dropi',f:m=>m.ingresado,t:'$',d:'Lo que entra a Dropi: entregados (venta − proveedor − flete) menos fletes de devoluciones'},
@@ -344,9 +349,11 @@ const METRICS=[
  {l:'Costo de devoluciones',f:m=>m.cDev,t:'$',d:'Flete de retorno de devueltos',e:1},
  {l:'Inversión publicitaria',f:m=>m.inv,t:'$',d:'Inversión total en Meta'},
  {l:'Costos totales',f:m=>m.costos,t:'$',d:'Inversión + transportadora + proveedores + devoluciones'},
+ {r:1},
  {l:'Ganancia neta',f:m=>m.gan,t:'$',d:'Dinero ingresado a Dropi − inversión',sign:1},
  {l:'Ganancia neta por pedido entregado',f:m=>div(m.gan,m.ent),t:'$',d:'Ganancia neta ÷ entregados',sign:1},
  {l:'% Margen neto',f:m=>div(m.gan,m.ingresado),t:'%',d:'Ganancia neta ÷ dinero ingresado',sign:1},
+ {s2:'Promedios'},
  {l:'Ingreso promedio por pedido entregado',f:m=>div(m.ingresado,m.ent),t:'$',d:'Dinero ingresado ÷ entregados'},
  {l:'Flete promedio',f:m=>m.fleteProm,t:'$',d:'Costo transportadora ÷ pedidos cerrados',e:1},
  {l:'Flete promedio de devolución',f:m=>m.fleteDevProm,t:'$',d:'Costo devoluciones ÷ devueltos',e:1},
@@ -434,11 +441,13 @@ function renderMetricas(){
       '% pedidos a oficina':'Pedidos a oficina','% efectividad oficina':'Entregados oficina','% cancelación oficina':'Cancelados oficina','% devoluciones oficina':'Devueltos oficina',
       '% efectividad comentarios':'Entregados comentarios','% cancelación comentarios':'Ventas comentarios','% devoluciones comentarios':'Devueltos comentarios',
       '% de compras dobles':'Pedidos de 2 unidades','% de compras triples':'Pedidos de 3 unidades','% pagos anticipados':'Pedidos con pago anticipado',
-      '% conversión de preliminares':'Preliminares convertidos','% CPA Meta':'CPA Meta','% CPA Dropi':'CPA Dropi'};
+      '% CPA Meta':'CPA Meta','% CPA Dropi':'CPA Dropi'};
     const kids={};METRICS.forEach(d=>{if(ATT[d.l])(kids[ATT[d.l]]=kids[ATT[d.l]]||[]).push(d);});
     let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
     METRICS.forEach(d=>{
       if(ATT[d.l])return;
+      if(d.r){flush();sec='<div class="cards" style="margin-top:14px">';return;}
+      if(d.s2){flush();body+=`<div class="sec-h" style="font-size:11.5px;opacity:.85;margin-top:20px">${d.s2}</div>`;sec='<div class="cards">';return;}
       if(d.s){flush();body+=`<div class="sec-h">${d.s}${d.est&&tot.est?'<span class="esttag">fletes estimados donde Dropi no los da</span>':''}</div>`;sec='<div class="cards">';return;}
       if(d.p){sec+=`<div class="stat pend"><div class="k">${d.l}<span class="pendtag">Shopify</span></div><div class="v">pendiente</div><div class="f">${d.d||''}</div></div>`;return;}
       const v=d.f(tot);const c=d.sign?(v<0?'red':'grn'):'';
@@ -453,7 +462,8 @@ function renderMetricas(){
       DIM==='producto'?`<div class="hint">La inversión de Meta se asigna al producto según el nombre de la campaña. Si algún producto no casa bien, ajústalo en ⚙️ Configuración → Productos.</div>`:'';
     let h=`<div class="tablewrap"><table class="mx"><thead><tr><th>Métrica</th><th class="tot">Total</th>${G.map(g=>`<th>${g.label||g.name}</th>`).join('')}</tr></thead><tbody>`;
     METRICS.forEach(d=>{
-      if(d.s){h+=`<tr class="sh"><td colspan="${G.length+2}">${d.s}</td></tr>`;return;}
+      if(d.r)return;
+      if(d.s||d.s2){h+=`<tr class="sh"><td colspan="${G.length+2}">${d.s||d.s2}</td></tr>`;return;}
       if(d.p){h+=`<tr><td>${d.l}<span class="pendtag">Shopify</span></td><td class="na tot">—</td>${G.map(()=>'<td class="na">—</td>').join('')}</tr>`;return;}
       const cell=(m,cls)=>{const v=d.f(m);const c=d.sign&&v!=null?(v<0?'neg':'pos'):'';return`<td class="num ${c} ${cls||''}">${FMT[d.t](v)}</td>`;};
       h+=`<tr><td title="${d.d||''}">${d.l}</td>${cell(tot,'tot')}${G.map(g=>cell(g.m)).join('')}</tr>`;
