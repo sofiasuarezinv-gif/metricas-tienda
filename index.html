@@ -641,7 +641,20 @@ function renderDetalle(m,L,M,SH){
   // 📦 Pedidos
   h+=sec('📦 Pedidos',
     box('Estado de los pedidos',`${m.comp} pedidos completos · ${m.desp} despachados (${fP(div(m.desp,m.comp))})`,donut('ch-estado',[{name:'Entregados',value:m.ent,c:CC.good},{name:'En proceso',value:m.proc,c:CC.b},{name:'Devueltos',value:m.dev,c:CC.ser},{name:'Cancelados',value:m.canc,c:CC.crit}],fP(div(m.ent,m.desp)),'efectividad'))+
-    box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}])));
+    box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}]))+
+    (()=>{ // estado actual de cada pedido, una barra por grupo (cada valor al final de su barra, sin encimarse)
+      const e=o=>o.estado||'';
+      const G=[['Entregados',o=>isEnt(o),CC.good],['Devoluciones',o=>isDev(o),CC.ser],['Cancelados',o=>isCanc(o),CC.crit],
+        ['En oficina',o=>/OFICINA/.test(e(o)),CC.y],['En procesamiento',o=>/PROCESAMIENTO|PENDIENTE|GUIA|RECOGIDO|PREPARAD/.test(e(o)),CC.v],
+        ['En reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b]];
+      const base=G.slice(),used=o=>base.some(([,f])=>f(o)),rest=L.filter(o=>!used(o)).length;
+      if(rest)G.push(['En tránsito',o=>!used(o),CC.a]);
+      const vals=G.map(([n,f])=>L.filter(f).length),tot=L.length||1;
+      return box('Estado actual de los pedidos','',ec('ch-estados',{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${p.value} pedidos · ${fP(p.value/tot)}`},
+        grid:{left:10,right:110,top:10,bottom:10,containLabel:true},xAxis:{type:'value',show:false,max:Math.max(...vals)*1.05||1},
+        yAxis:{type:'category',inverse:true,data:G.map(g=>g[0]),...AX,axisLine:{show:false},axisLabel:{color:'#ece9f5',fontWeight:700,fontSize:13,margin:14}},
+        series:[{type:'bar',barWidth:22,data:vals.map((v,i)=>({value:v,name:G[i][0],itemStyle:{color:G[i][2],borderRadius:[0,6,6,0]}})),showBackground:true,backgroundStyle:{color:'rgba(255,255,255,.04)',borderRadius:[0,6,6,0]},
+          label:{show:true,position:'right',distance:10,formatter:p=>`{v|${p.value}}  {p|${fP(p.value/tot)}}`,rich:{v:{color:'#ece9f5',fontWeight:800,fontSize:14},p:{color:'#948fb0',fontWeight:700,fontSize:12}}}}]},Math.max(240,G.length*44+30)),1);})());
   // 🛒 Ventas
   h+=sec('🛒 Ventas',
     box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Dropi sin preliminares','Preliminar recuperado','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.comp-m.shop.conv,m.shop.conv,m.comp],[CC.b,CC.a,CC.o,CC.y,CC.o],fN))+
