@@ -644,12 +644,10 @@ function renderDetalle(m,L,M,SH){
     box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}]))+
     (()=>{ // estado actual de cada pedido, una barra por grupo (cada valor al final de su barra, sin encimarse)
       const e=o=>o.estado||'';
-      const G=[['Entregados',o=>isEnt(o),CC.good],['Devoluciones',o=>isDev(o),CC.ser],['Cancelados',o=>isCanc(o),CC.crit],
-        ['En oficina',o=>/OFICINA/.test(e(o)),CC.y],['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],
-        ['En procesamiento',o=>/PROCESAMIENTO|RECOGIDO|PREPARAD/.test(e(o)),CC.v],
-        ['En reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b]];
-      const base=G.slice(),used=o=>base.some(([,f])=>f(o)),rest=L.filter(o=>!used(o)).length;
-      if(rest)G.push(['En tránsito',o=>!used(o),CC.a]);
+      const ot=[['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Cancelado',o=>isCanc(o),CC.crit],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],['Devolución',o=>isDev(o),CC.ser],
+        ['Procesamiento',o=>/PROCESAMIENTO|RECOGIDO|PREPARAD/.test(e(o)),CC.v],['Oficina',o=>/OFICINA/.test(e(o)),CC.y],['Reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b],['Entregado',o=>isEnt(o),CC.good]];
+      const used=o=>ot.some(([,f])=>f(o)); // tránsito = cualquier otro estado (bodegas, terminal, despachada, novedad…)
+      const G=[...ot.slice(0,5),['Tránsito',o=>!used(o),CC.a],...ot.slice(5)];
       const vals=G.map(([n,f])=>L.filter(f).length),tot=L.length||1;
       return box('Estado actual de los pedidos','',ec('ch-estados',{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${p.value} pedidos · ${fP(p.value/tot)}`},
         grid:{left:10,right:110,top:10,bottom:10,containLabel:true},xAxis:{type:'value',show:false,max:Math.max(...vals)*1.05||1},
