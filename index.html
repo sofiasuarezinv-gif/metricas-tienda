@@ -548,11 +548,15 @@ const LEG={textStyle:{color:'#948fb0',fontSize:12},itemWidth:12,itemHeight:12,ic
 const grad=(c)=>({type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:c+'66'},{offset:1,color:c+'05'}]});
 // dona con texto al centro
 function donut(id,data,center,sub,h,money){
-  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${money?f$(p.value):fN(p.value)} · ${p.percent}%`},legend:{...LEG,top:'bottom',show:!money},
-    title:{text:center,subtext:sub,left:'center',top:money?'41%':'38%',textStyle:{color:'#ece9f5',fontSize:24,fontWeight:800},subtextStyle:{color:'#948fb0',fontSize:11}},
-    series:[{type:'pie',radius:money?['44%','64%']:['52%','74%'],center:money?['50%','50%']:['50%','45%'],padAngle:2,itemStyle:{borderRadius:6,borderColor:'#101019',borderWidth:2},
-      label:money?{show:true,position:'outside',color:'#ece9f5',fontWeight:700,fontSize:12,lineHeight:16,width:120,overflow:'break',formatter:p=>[p.name,fP(p.percent/100)+' · '+fM(p.value)].join('\n')}:{show:true,color:'#ece9f5',formatter:p=>p.value?`${p.value}`:'',fontWeight:700},labelLine:{length:8,length2:6},
-      emphasis:{scale:true,scaleSize:8,label:{fontSize:14}},data:data.filter(d=>d.value>0).map(d=>({name:d.name,value:d.value,itemStyle:{color:d.c}}))}]},h||300);
+  // cada parte lleva su nombre al lado (del mismo color de la parte), con cantidad y %; sin leyenda aparte
+  const D=data.filter(d=>d.value>0);
+  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${money?f$(p.value):fN(p.value)} · ${p.percent}%`},legend:{show:false},
+    title:{text:center,subtext:sub,left:'center',top:'42%',textStyle:{color:'#ece9f5',fontSize:22,fontWeight:800},subtextStyle:{color:'#948fb0',fontSize:11}},
+    series:[{type:'pie',radius:['44%','64%'],center:['50%','52%'],padAngle:2,minShowLabelAngle:0,avoidLabelOverlap:true,itemStyle:{borderRadius:6,borderColor:'#101019',borderWidth:2},
+      label:{show:true,position:'outside',formatter:p=>`{n${p.dataIndex}|${p.name}}\n{v|${money?fM(p.value):fN(p.value)}}  {p|${fP(p.percent/100)}}`,
+        rich:Object.assign({v:{color:'#ece9f5',fontWeight:800,fontSize:15,lineHeight:20},p:{color:'#948fb0',fontWeight:700,fontSize:12}},...D.map((d,i)=>({['n'+i]:{color:d.c,fontWeight:800,fontSize:12.5,lineHeight:18}})))},
+      labelLine:{length:10,length2:16,lineStyle:{width:1.5}},
+      emphasis:{scale:true,scaleSize:6},data:D.map(d=>({name:d.name,value:d.value,itemStyle:{color:d.c}}))}]},h||320);
 }
 // barras con un color por barra
 function bars(id,cats,vals,colors,fmt,opts={}){
