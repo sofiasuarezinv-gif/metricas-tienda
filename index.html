@@ -137,6 +137,7 @@
   .dims button{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:9px 15px;border-radius:10px;font:700 13px "Inter";cursor:pointer}
   .dims button:hover{color:var(--ink)} .dims button.active{background:rgba(124,92,255,.18);border-color:var(--purple2);color:var(--purple)}
   .stat .f{font-size:10.5px;color:var(--sub);margin-top:7px;line-height:1.3;opacity:.8}
+  .stat .pc{font-size:15px;font-weight:800;margin-top:7px;color:var(--purple);font-variant-numeric:tabular-nums} .stat .pc small{font-size:11px;font-weight:600;color:var(--sub);margin-left:4px}
   .stat.pend{opacity:.55} .stat.pend .v{font-size:15px;color:var(--sub)}
   .pendtag{font-size:9.5px;font-weight:800;color:var(--amber);background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:20px;padding:1px 7px;margin-left:6px;white-space:nowrap}
   .esttag{font-size:9.5px;font-weight:800;color:var(--cyan);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);border-radius:20px;padding:1px 7px;margin-left:6px;white-space:nowrap}
@@ -423,17 +424,26 @@ function renderMetricas(){
     // métricas principales (las demás quedan en "Ver todas las métricas")
     const KEY=[['Inversión','$',m=>m.inv,'Gasto total en Meta'],['Ventas Meta','n',m=>m.ventasMeta,'Compras atribuidas por Meta'],['CPA','$',m=>div(m.inv,m.ventasMeta),'Inversión ÷ ventas Meta'],
       ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
-      ['Entregados','n',m=>m.ent,'Estado entregado'],['% Efectividad','%',m=>div(m.ent,m.desp),'Entregados ÷ despachados'],['Cancelados','n',m=>m.canc,'Estado cancelado'],['% Cancelación','%',m=>div(m.canc,m.comp),'Cancelados ÷ completos'],
-      ['Devoluciones','n',m=>m.dev,'Estado devolución'],['% Devolución','%',m=>div(m.dev,m.desp),'Devueltos ÷ despachados'],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
+      ['Entregados','n',m=>m.ent,'Efectividad = entregados ÷ despachados',0,['efectividad',m=>div(m.ent,m.desp)]],['Cancelados','n',m=>m.canc,'Cancelación = cancelados ÷ completos',0,['cancelación',m=>div(m.canc,m.comp)]],
+      ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
       ['Ganancia en procesamiento','$',m=>m.ganProc,m=>`Si se entregan todos los en camino (venta − proveedor − flete). Esperada con tu efectividad de ${fP(m.efC)}: ${f$(m.ganProcEsp)}`,1]];
-    body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div><div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
+    body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${fP(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
     body+='<details class="acc" style="margin-top:28px"><summary>Ver todas las métricas</summary><div class="acc-body">';
+    // cada % va debajo del número al que corresponde
+    const ATT={'% de efectividad':'Pedidos entregados','% de cancelación':'Pedidos cancelados','% de devoluciones':'Pedidos devueltos','% despachados':'Pedidos despachados',
+      '% pedidos a oficina':'Pedidos a oficina','% efectividad oficina':'Entregados oficina','% cancelación oficina':'Cancelados oficina','% devoluciones oficina':'Devueltos oficina',
+      '% efectividad comentarios':'Entregados comentarios','% cancelación comentarios':'Ventas comentarios','% devoluciones comentarios':'Devueltos comentarios',
+      '% de compras dobles':'Pedidos de 2 unidades','% de compras triples':'Pedidos de 3 unidades','% pagos anticipados':'Pedidos con pago anticipado',
+      '% conversión de preliminares':'Preliminares convertidos','% CPA Meta':'CPA Meta','% CPA Dropi':'CPA Dropi'};
+    const kids={};METRICS.forEach(d=>{if(ATT[d.l])(kids[ATT[d.l]]=kids[ATT[d.l]]||[]).push(d);});
     let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
     METRICS.forEach(d=>{
+      if(ATT[d.l])return;
       if(d.s){flush();body+=`<div class="sec-h">${d.s}${d.est&&tot.est?'<span class="esttag">fletes estimados donde Dropi no los da</span>':''}</div>`;sec='<div class="cards">';return;}
       if(d.p){sec+=`<div class="stat pend"><div class="k">${d.l}<span class="pendtag">Shopify</span></div><div class="v">pendiente</div><div class="f">${d.d||''}</div></div>`;return;}
       const v=d.f(tot);const c=d.sign?(v<0?'red':'grn'):'';
-      sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${d.d?`<div class="f">${d.d}</div>`:''}</div>`;
+      const kk=kids[d.l]||[],pcs=kk.map(k=>`<div class="pc">${FMT[k.t](k.f(tot))}<small>${k.l.replace(/^% (de )?/,'')}</small></div>`).join('');
+      sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${pcs}${d.d?`<div class="f">${d.d}${kk.filter(k=>k.d).map(k=>' · '+k.l.replace(/^% (de )?/,'')+' = '+k.d).join('')}</div>`:''}</div>`;
     });flush();body+='</div></details>';
   }else{
     const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
