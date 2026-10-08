@@ -766,9 +766,18 @@ function renderDetalle(m,L,M,SH){
   // 🧺 Unidades · 🏢 Oficina · 💳 Anticipados
   const u1=L.filter(o=>units(o)===1).length,u4=L.filter(o=>units(o)>=4).length;
   h+=sec('🧺 Unidades · 🏢 Oficina · 💳 Pagos',
-    box('Unidades por pedido',`${fN(m.uni)} unidades vendidas · compras de 2 o más: <b>${fP(div(m.um,m.comp))}</b>`,donut('ch-uni',[{name:'1 unidad',value:u1,c:CC.b},{name:'2 unidades',value:m.u2,c:CC.a},{name:'3 unidades',value:m.u3,c:CC.y},{name:'4 o más',value:u4,c:CC.o}],fN(m.uni),'unidades',280))+
+    (()=>{ // pedidos según cuántas unidades llevan; arriba: pedidos, unidades y promedio (todo cuadra)
+      const R=[['1 unidad',u1,1,CC.b],['2 unidades',m.u2,2,CC.a],['3 unidades',m.u3,3,CC.y]].concat(u4?[['4 o más',u4,4,CC.o]]:[]);
+      const und=L.filter(o=>units(o)>=4).reduce((s,o)=>s+units(o),0),uOf=r=>r[2]<4?r[1]*r[2]:und,tot=m.comp||1;
+      const k=(l,v)=>`<div class="pl-k"><div class="pl-kl">${l}</div><div class="pl-kv">${v}</div></div>`;
+      return box('Unidades por pedido','',`<div class="pl-kpis">${k('Pedidos',fN(m.comp))}${k('Unidades',fN(m.uni))}${k('Und. por pedido',(m.uni/tot).toLocaleString('es-CO',{maximumFractionDigits:2}))}${k('Compras de 2 o más',fP(div(m.um,m.comp)))}</div>`+
+        ec('ch-uni',{tooltip:{trigger:'item',formatter:p=>{const r=R[p.dataIndex];return`<b>${r[0]}</b><br>${r[1]} pedidos · ${fP(r[1]/tot)}<br>${uOf(r)} unidades`;}},
+          grid:{left:10,right:150,top:4,bottom:4,containLabel:true},xAxis:{type:'value',show:false,max:Math.max(...R.map(r=>r[1]))*1.02||1},
+          yAxis:{type:'category',inverse:true,data:R.map(r=>r[0]),...AX,axisLine:{show:false},axisLabel:{color:'#ece9f5',fontWeight:700,fontSize:13,margin:14}},
+          series:[{type:'bar',barWidth:22,showBackground:true,backgroundStyle:{color:'rgba(255,255,255,.04)',borderRadius:[0,6,6,0]},data:R.map(r=>({value:r[1],itemStyle:{color:r[3],borderRadius:[0,6,6,0]}})),
+            label:{show:true,position:'right',distance:10,formatter:p=>{const r=R[p.dataIndex];return`{v|${r[1]} pedidos}  {p|${fP(r[1]/tot)}}`;},rich:{v:{color:'#ece9f5',fontWeight:800,fontSize:13.5},p:{color:'#948fb0',fontWeight:700,fontSize:12}}}}]},R.length*46+20));})()+
     box('Pedidos a oficina',`${fP(div(m.of.n,m.comp))} de los pedidos · efectividad ${fP(div(m.of.e,m.of.d))}`,m.of.n?donut('ch-ofi',[{name:'Entregados',value:m.of.e,c:CC.good},{name:'En proceso',value:m.of.d-m.of.e-m.of.v,c:CC.b},{name:'Devueltos',value:m.of.v,c:CC.ser},{name:'Cancelados',value:m.of.c,c:CC.crit}],fN(m.of.n),'a oficina',280):'<div class="empty" style="padding:40px">Sin pedidos a oficina en este rango</div>')+
-    box('Pago anticipado vs contraentrega',`Recaudado anticipado: <b>${f$(m.anticVal)}</b>`,donut('ch-ant',[{name:'Contraentrega',value:m.desp-m.antic,c:CC.b},{name:'Pago anticipado',value:m.antic,c:CC.good}],fP(div(m.antic,m.comp)),'anticipado',280))+
+    box('Pago anticipado vs contraentrega',`Recaudado anticipado: <b>${f$(m.anticVal)}</b>`,donut('ch-ant',[{name:'Contraentrega',value:m.desp-m.antic,c:CC.b},{name:'Pago anticipado',value:m.antic,c:CC.good}],fP(div(m.antic,m.desp)),'anticipado',280))+
     box('Ventas por comentarios',m.cm.n?`Efectividad ${fP(div(m.cm.e,m.cm.n))}`:'',m.cm.n?donut('ch-com',[{name:'Entregados',value:m.cm.e,c:CC.good},{name:'Devueltos',value:m.cm.v,c:CC.ser},{name:'Cancelados',value:m.cm.c,c:CC.crit}],fN(m.cm.n),'pedidos',280):'<div class="empty" style="padding:40px">Aún no hay pedidos marcados como "comentarios de Facebook"</div>'));
   // 📍 Distribución
   h+=sec('📍 Por transportadora, producto, ciudad y día de la semana',
