@@ -160,6 +160,21 @@
   .pl-v,.pl-p,.pl-u{text-align:right;font-variant-numeric:tabular-nums;font-weight:700} .pl-v{font-size:14px} .pl.res .pl-v{font-size:17px;font-weight:800} .pl-v.neg{color:var(--red)} .pl.cost .pl-v{color:#d4cfe6}
   .pl-p,.pl-u{color:var(--sub);font-size:12.5px}
   @media(max-width:900px){.pl,.pl-h{grid-template-columns:1fr 90px 70px}.pl-bar,.pl-u,.pl-h div:nth-child(2),.pl-h div:nth-child(5){display:none}}
+  /* escalera de CPA */
+  .cpa-row{display:flex;align-items:stretch;gap:0;margin-top:8px;flex-wrap:wrap}
+  .cpa-card{flex:1;min-width:190px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;transition:transform .15s,border-color .15s}
+  .cpa-card:hover{transform:translateY(-2px);border-color:var(--purple2)}
+  .cpa-top{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
+  .cpa-dot{width:10px;height:10px;border-radius:3px}
+  .cpa-v{font-size:26px;font-weight:800;margin:8px 0 2px;font-variant-numeric:tabular-nums}
+  .cpa-b{font-size:11.5px;color:var(--sub)} .cpa-b b{color:var(--ink)}
+  .cpa-g{margin:14px 0 8px} .cpa-gt{position:relative;height:10px;background:rgba(255,255,255,.06);border-radius:6px}
+  .cpa-gt div{height:100%;border-radius:6px;animation:plg .9s cubic-bezier(.2,.8,.2,1)} .cpa-gt i{position:absolute;top:-4px;width:2px;height:18px;background:#fff;border-radius:2px;opacity:.85}
+  .cpa-m{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--sub);flex-wrap:wrap} .cpa-m b{color:var(--ink)}
+  .cpa-n{font-size:11.5px;color:#9ec5f4;margin-top:8px} .cpa-n b{color:#cde2fb}
+  .cpa-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;color:var(--sub);font-size:18px;min-width:56px}
+  .cpa-arrow span{font-size:11px;font-weight:800;color:#f87171;margin-bottom:2px}
+  @media(max-width:900px){.cpa-arrow{min-width:100%;flex-direction:row;gap:6px;padding:6px 0}.cpa-card{min-width:100%}}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -623,8 +638,29 @@ function renderDetalle(m,L,M,SH){
     box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Dropi sin preliminares','Preliminar recuperado','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.comp-m.shop.conv,m.shop.conv,m.comp],[CC.b,CC.a,CC.o,CC.y,CC.o],fN))+
     box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos')));
   // 🎯 CPA
-  h+=sec('🎯 CPA',
-    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+'\n'+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+'\n'+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}),1));
+  // 🎯 CPA: escalera por etapa, cada una contra el CPA máximo que aguantas sin perder
+  {
+    const E=m.ingresado+m.ganProcEsp; // lo que dejan los pedidos (ya entró + lo esperado en camino), antes de publicidad
+    const expEnt=m.ent+m.proc*m.efC;   // entregados esperados al cerrar
+    const st=[
+      {l:'CPA Meta',base:m.ventasMeta,bl:'ventas que reporta Meta',pc:div(m.inv,m.factMeta),pcl:'% CPA Meta',c:CC.b},
+      {l:'CPA Dropi',base:m.comp,bl:'pedidos en Dropi',pc:div(m.inv,m.valDropi),pcl:'% CPA Dropi',c:CC.o},
+      {l:'CPA despachado',base:m.desp,bl:'pedidos despachados',c:CC.v},
+      {l:'CPA entregado',base:m.ent,bl:'pedidos entregados',c:CC.good,ent:1}];
+    st.forEach(s=>{s.v=div(m.inv,s.base);s.max=s.ent?div(E,expEnt):div(E,s.base);s.r=s.v&&s.max?s.v/s.max:null;});
+    const card=(s,i)=>{const ok=s.r!=null&&s.r<=1,col=s.r==null?'#948fb0':ok?'#34d399':'#f87171',fill=Math.min(100,(s.r||0)*100/1.5);
+      const prev=i?st[i-1]:null,ch=prev&&prev.v&&s.v?s.v/prev.v-1:null;
+      return (i?`<div class="cpa-arrow"><span style="color:${ch!=null&&ch<=0?'#34d399':'#f87171'}">${ch==null?'':(ch>0?'+':'')+fP(ch)}</span>➜</div>`:'')+
+      `<div class="cpa-card" data-tip="<b>${s.l}</b><br>Inversión ${f$(m.inv)} ÷ ${s.base} ${s.bl} = <b>${f$(s.v)}</b><br>Máximo para no perder: <b>${f$(s.max)}</b><br><span style=&quot;color:#948fb0&quot;>Máximo = lo que dejan los pedidos (ya entró + lo esperado de los ${m.proc} en camino) ÷ ${s.ent?'entregados esperados al cerrar':s.bl}</span>">
+        <div class="cpa-top"><span class="cpa-dot" style="background:${s.c}"></span>${s.l}</div>
+        <div class="cpa-v">${f$(s.v)}</div>
+        <div class="cpa-b">${fN(s.base)} ${s.bl}${s.pc!=null?` · <b>${fP(s.pc)}</b> ${s.pcl.replace('% ','')}`:''}</div>
+        <div class="cpa-g"><div class="cpa-gt"><div style="width:${fill}%;background:${col}"></div><i style="left:${100/1.5}%"></i></div></div>
+        <div class="cpa-m"><span>Máx. sin perder <b>${f$(s.max)}</b></span><span style="color:${col};font-weight:800">${s.r==null?'':ok?'✓ '+fP(1-s.r)+' de margen':'✗ te pasas '+fP(s.r-1)}</span></div>
+        ${s.ent&&m.proc?`<div class="cpa-n">Al cerrar los ${m.proc} en camino: ~<b>${f$(div(m.inv,expEnt))}</b></div>`:''}
+      </div>`;};
+    h+=sec('🎯 CPA',box('¿Cuánto te cuesta en publicidad cada pedido?',`Cada etapa se encarece porque se pierden pedidos (cancelados, devueltos, en camino) · la rayita blanca = el máximo que aguantas sin perder`,`<div class="cpa-row">${st.map(card).join('')}</div>`,1));
+  }
   // 🧾 Preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
   h+=sec('🧾 Preliminares',
