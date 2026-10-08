@@ -654,8 +654,8 @@ function renderDetalle(m,L,M,SH){
     const st=[
       {l:'CPA Meta',base:m.ventasMeta,bl:'ventas que reporta Meta',pc:div(m.inv,m.factMeta),pcl:'% CPA Meta',c:CC.b},
       {l:'CPA Dropi',base:m.comp,bl:'pedidos en Dropi',pc:div(m.inv,m.valDropi),pcl:'% CPA Dropi',c:CC.o},
-      {l:'CPA despachado',base:m.desp,bl:'pedidos despachados',c:CC.v},
-      {l:'CPA entregado',base:m.ent,bl:'pedidos entregados',c:CC.good,ent:1}];
+      {l:'CPA despachado',base:m.desp,bl:'pedidos despachados',pc:div(m.inv,m.factDesp),pcl:'% CPA despachado',c:CC.v},
+      {l:'CPA entregado',base:m.ent,bl:'pedidos entregados',pc:div(m.inv,m.factEnt),pcl:'% CPA entregado',c:CC.good,ent:1}];
     st.forEach(s=>{s.v=div(m.inv,s.base);s.max=s.ent?div(E,expEnt):div(E,s.base);s.r=s.v&&s.max?s.v/s.max:null;});
     const card=(s,i)=>{const ok=s.r!=null&&s.r<=1,col=s.r==null?'#948fb0':ok?'#34d399':'#f87171',fill=Math.min(100,(s.r||0)*100/1.5);
       const prev=i?st[i-1]:null,ch=prev&&prev.v&&s.v?s.v/prev.v-1:null;
