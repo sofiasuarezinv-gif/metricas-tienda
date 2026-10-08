@@ -611,9 +611,13 @@ function dayBars(id,days,keep,series,fmt,h){
 }
 // barras apiladas por grupo (entregados / en proceso / devueltos / cancelados)
 function estadoPorGrupo(id,G,h){
-  // cada fila al 100%: % de entregados / en proceso / devueltos / cancelados; a la izquierda nombre + pedidos, a la derecha la efectividad
-  const rows=G.filter(g=>g.list.length).map(g=>({n:g.label||g.name,m:calc(g.list,{})})),TT=rows.reduce((a,r)=>a+r.m.comp,0)||1; // TT = total de pedidos (para el % que representa cada grupo)
-  const S=[['Entregados',r=>r.m.ent,CC.good],['En proceso',r=>r.m.proc,CC.b],['Devueltos',r=>r.m.dev,CC.ser],['Cancelados',r=>r.m.canc,CC.crit]];
+  // cada fila al 100%: % de cada estado; a la izquierda nombre + pedidos, a la derecha la efectividad
+  const rows=G.filter(g=>g.list.length).map(g=>({n:g.label||g.name,list:g.list,m:calc(g.list,{})})),TT=rows.reduce((a,r)=>a+r.m.comp,0)||1; // TT = total de pedidos (para el % que representa cada grupo)
+  // estados en detalle (mismos colores que "Estado actual de los pedidos"); en procesamiento = procesamiento + tránsito (todo lo que no cae en los demás)
+  const es=o=>o.estado||'',X=[['Entregados',o=>isEnt(o),CC.good],['Devoluciones',o=>isDev(o),CC.crit],['Cancelados',o=>isCanc(o),CC.ser],['En oficina',o=>/OFICINA/.test(es(o)),CC.y],
+    ['Pendiente',o=>/PENDIENTE/.test(es(o)),'#94a3b8'],['Guía generada',o=>/GUIA/.test(es(o)),'#f472b6'],['En procesamiento',null,CC.v],['En reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(es(o)),CC.b]];
+  const oth=X.filter(x=>x[1]);X[6][1]=o=>!oth.some(([,f])=>f(o));
+  const S=X.map(([n,f,c])=>[n,r=>r.list.filter(f).length,c]);
   const ef=r=>div(r.m.ent,r.m.desp); // misma efectividad que el resto del dashboard (entregados ÷ despachados)
   const efc=v=>v==null?'#948fb0':v>=.8?'#34d399':v>=.65?'#fab219':'#f87171';
   const nm=s=>{s=String(s).replace(/ \((lun-vie|sáb-dom)\)/,'');return s.length>22?s.slice(0,21)+'…':s;};
@@ -627,7 +631,7 @@ function estadoPorGrupo(id,G,h){
       {type:'category',inverse:true,data:rows.map((r,i)=>i),position:'right',axisLine:{show:false},axisTick:{show:false},
         axisLabel:{formatter:i=>{const v=ef(rows[i]);return`{e${i}|${v==null?'—':fP(v)}}\n{s|efectividad}`;},rich:Object.assign({s:{color:'#948fb0',fontSize:10.5,align:'left'}},...rows.map((r,i)=>({['e'+i]:{color:efc(ef(r)),fontWeight:800,fontSize:16,lineHeight:20,align:'left'}})))}}],
     series:S.map(([n,f,c],i)=>({name:n,type:'bar',stack:'t',barWidth:26,data:rows.map(r=>+(100*f(r)/(r.m.comp||1)).toFixed(1)),
-      itemStyle:{color:c,borderRadius:i===0?[6,0,0,6]:i===3?[0,6,6,0]:0,borderColor:'#101019',borderWidth:1},emphasis:{focus:'series'},
+      itemStyle:{color:c,borderRadius:0,borderColor:'#101019',borderWidth:1},emphasis:{focus:'series'},
       label:{show:true,color:'#fff',fontWeight:800,fontSize:11.5,formatter:p=>{const n=f(rows[p.dataIndex]);return p.value>=11?n+' · '+Math.round(p.value)+'%':p.value>=4?String(n):'';}}}))},h||Math.max(170,rows.length*54+56));
 }
 
