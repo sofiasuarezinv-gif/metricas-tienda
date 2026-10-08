@@ -111,6 +111,14 @@ const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   try {
     if (url === '/api/all' && req.method === 'GET') {
+      // con META_TOKEN: si Meta tiene más de 15 min sin actualizar, se trae en vivo (últimos 3 días) antes de responder
+      if (META.token) {
+        const s = await getObj('sync.json', {});
+        if (!s.meta || Date.now() - new Date(s.meta) > 15 * 60e3) {
+          const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10), since = new Date(Date.now() - 5 * 3600e3 - 2 * 86400e3).toISOString().slice(0, 10);
+          try { await refreshMeta(since, today); } catch (e) { console.error('auto meta', e.message); }
+        }
+      }
       const [orders, meta, config, sync, shopify] = await Promise.all([getAllOrders(), getObj('meta_campaigns.json', []), getObj('config.json', {}), getObj('sync.json', {}), getObj('shopify_data.json', { orders: [], drafts: [] })]);
       return sendJson(res, 200, { orders, meta, config, sync, shopify, metaLive: !!META.token });
     }

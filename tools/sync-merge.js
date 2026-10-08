@@ -37,16 +37,17 @@ if (dropiFile) {
       created_at: s.created_at, estado,
       transportadora: String(s.transportadora || s.shipping_company || '').trim().toUpperCase() || '—',
       nombre: s.nombre || (prev && prev.nombre) || '', telefono: s.telefono || (prev && prev.telefono) || '',
-      ciudad: s.ciudad || (prev && prev.ciudad) || '', direccion: s.direccion || '',
+      ciudad: s.ciudad || (prev && prev.ciudad) || '', direccion: s.direccion || (prev && prev.direccion) || '',
       venta: +s.total || (prev && prev.venta) || 0,
       tipo_envio: String(s.rate_type || (prev && prev.tipo_envio) || '').toUpperCase(),
       anticipado: /SIN RECAUDO/i.test(s.rate_type || ''),
       // a oficina: estado "RECLAME EN OFICINA" o dirección con "oficina"; una vez marcado se conserva (luego pasa a ENTREGADO)
       oficina: !!(prev && prev.oficina) || /OFICINA/i.test(estado) || /OFICINA/i.test(dirTxt),
-      items: items.map(i => ({ producto: i.product_name, qty: +i.qty || 1, unit_price: +i.unit_price || 0 })),
+      // sin detalle (solo listado de estados) → se conserva lo que ya se tenía del pedido
+      items: items.length ? items.map(i => ({ producto: i.product_name, qty: +i.qty || 1, unit_price: +i.unit_price || 0 })) : ((prev && prev.items) || []),
       producto: items[0] ? String(items[0].product_name).trim() : ((prev && prev.producto) || ''),
-      unidades: items.reduce((a, i) => a + (+i.qty || 1), 0) || 1,
-      tracking: s.tracking || '',
+      unidades: items.length ? items.reduce((a, i) => a + (+i.qty || 1), 0) : ((prev && prev.unidades) || 1),
+      tracking: s.tracking || (prev && prev.tracking) || '',
       fuente: 'dropi-api',
     });
     // costo proveedor: el del Excel si existe; si no, precio proveedor × cantidad de la API
