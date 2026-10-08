@@ -344,8 +344,8 @@ const METRICS=[
  {s:'🛒 Ventas'},
  {l:'Ventas de Meta',f:m=>m.ventasMeta,t:'n',d:'Compras atribuidas por Meta'},
  {l:'Ventas Shopify',f:m=>m.shop.ventas,t:'n',d:'Pedidos que entraron por la tienda Shopify'},
- {l:'Preliminar recuperado',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar (mismo teléfono)'},
  {l:'Ventas Dropi sin preliminares',f:m=>m.comp-m.shop.conv,t:'n',d:'Ventas Dropi − preliminares recuperados'},
+ {l:'Preliminar recuperado',f:m=>m.shop.conv,t:'n',d:'Pedidos de Dropi que salieron de un preliminar (mismo teléfono)'},
  {l:'Ventas en Dropi',f:m=>m.comp,t:'n',d:'Pedidos registrados en Dropi'},
  {l:'% efectividad ventas Meta',f:m=>m.shop.efMeta,t:'%',d:'Entregados ÷ despachados de los pedidos que entraron por la tienda (tráfico de Meta)'},
  {l:'Pedidos manuales',f:m=>m.shop.manual,t:'n',d:'En Dropi sin pedido de Shopify ni preliminar'},
@@ -583,7 +583,7 @@ function renderDetalle(m,L,M,SH){
     box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}])));
   // 🛒 Ventas
   h+=sec('🛒 Ventas',
-    box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Preliminar recuperado','Dropi sin preliminares','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.shop.conv,m.comp-m.shop.conv,m.comp],[CC.b,CC.a,CC.y,CC.o,CC.o],fN))+
+    box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Dropi sin preliminares','Preliminar recuperado','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.comp-m.shop.conv,m.shop.conv,m.comp],[CC.b,CC.a,CC.o,CC.y,CC.o],fN))+
     box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos'))+
     box('Ventas día a día','Barras = pedidos de Dropi según de dónde vinieron · línea = compras que reporta Meta. Arrastra la barra de abajo para hacer zoom.',
       daily('ch-ventas-dia',days,[{n:'Tienda',type:'bar',stack:'v',c:CC.a,v:per.map(p=>p.tienda)},{n:'Preliminar recuperado',type:'bar',stack:'v',c:CC.y,v:per.map(p=>p.prel)},{n:'Manual',type:'bar',stack:'v',c:CC.gray,v:per.map(p=>p.manual),top:1},{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)}],fN),1));
