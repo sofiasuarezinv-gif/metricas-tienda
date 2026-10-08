@@ -511,7 +511,9 @@ function renderMetricas(){
       ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Dinero ingresado a Dropi','$',m=>m.ingresado,m=>`${m.ent} entregados (venta − proveedor − flete): ${f$(m.recEnt)} · ${m.dev} devoluciones (flete ida y vuelta): −${f$(Math.abs(m.recDev))}`],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
       ['Entregados','n',m=>m.ent,'Efectividad = entregados ÷ despachados',0,['efectividad',m=>div(m.ent,m.desp)]],['Cancelados','n',m=>m.canc,'Cancelación = cancelados ÷ completos',0,['cancelación',m=>div(m.canc,m.comp)]],
       ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
-      ['Ganancia en procesamiento','$',m=>m.ganProc,m=>'',1,['esperada',m=>m.ganProcEsp,f$]]];
+      ['Ganancia en procesamiento','$',m=>m.ganProc,m=>'',1,['esperada',m=>m.ganProcEsp,f$]],
+      // ROI = ganancia neta ÷ inversión (= ROAS recolectado − 1)
+      ['ROI','%',m=>div(m.gan,m.inv),m=>'',1,['ROAS recolectado',m=>div(m.ingresado,m.inv),fX]]];
     body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${(pc[2]||fP)(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
     body+=renderDetalle(tot,L,M,SH);
   }else{
