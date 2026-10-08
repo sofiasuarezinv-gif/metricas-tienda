@@ -173,7 +173,9 @@
   .cpa-m{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--sub);flex-wrap:wrap} .cpa-m b{color:var(--ink)}
   .cpa-n{font-size:11.5px;color:#9ec5f4;margin-top:8px} .cpa-n b{color:#cde2fb}
   .cpa-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px;color:var(--sub);font-size:18px;min-width:56px}
-  .cpa-arrow span{font-size:11px;font-weight:800;color:#f87171;margin-bottom:2px}
+  .cpa-arrow span{font-size:11px;font-weight:800;color:#f87171;margin-bottom:2px} .cpa-arrow small{font-size:10px;color:var(--sub);text-align:center;max-width:70px;line-height:1.2;margin-top:2px}
+  .cpa-row.flow{flex-wrap:nowrap} .cpa-row.flow .cpa-card{min-width:0;padding:12px 13px} .cpa-row.flow .cpa-v{font-size:23px} .cpa-row.flow .cpa-arrow{min-width:64px;padding:0 4px} .cpa-row.flow .cpa-m{display:none} .cpa-row.flow .cpa-v{font-size:25px}
+  @media(max-width:1000px){.cpa-row.flow{flex-wrap:wrap}}
   @media(max-width:900px){.cpa-arrow{min-width:100%;flex-direction:row;gap:6px;padding:6px 0}.cpa-card{min-width:100%}}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
@@ -684,16 +686,17 @@ function renderDetalle(m,L,M,SH){
       {n:'Te entra a Dropi',v:m.ingresado,why:'Entregados − proveedor − fletes − fletes de devoluciones'}];
     const r=st.map(s=>div(s.v,m.inv)||0);
     const lost=(i)=>i&&r[i-1]?(r[i]-r[i-1])/r[i-1]:null;
-    const col=v=>v<1?CC.crit:v<1.5?CC.y:CC.b;
-    const c1=ec('ch-roas-flow',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const i=p[0].dataIndex,s=st[i];
-        return`<b>${s.n}</b><br>Por cada $1 invertido: <b>$${r[i].toLocaleString('es-CO',{maximumFractionDigits:2})}</b> (ROAS ${fX(r[i])})<br>Total: ${f$(s.v)} sobre ${f$(m.inv)} invertidos<br><span style="color:#948fb0">${s.why}</span>`+(lost(i)!=null?`<br>Cambio vs paso anterior: <b>${lost(i)>0?'+':''}${fP(lost(i))}</b>`:'');}},
-      grid:{left:10,right:20,top:48,bottom:10,containLabel:true},
-      xAxis:{type:'category',data:st.map(s=>s.n),...AX,axisLabel:{...AX.axisLabel,color:'#ece9f5',fontWeight:700,fontSize:12,interval:0}},
-      yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:v=>'$'+v}},
-      series:[{type:'bar',barWidth:'46%',data:r.map(v=>({value:+v.toFixed(2),itemStyle:{color:col(v),borderRadius:[8,8,0,0]}})),
-        label:{show:true,position:'top',formatter:p=>{const l=lost(p.dataIndex);return`{v|$${p.value.toLocaleString('es-CO',{minimumFractionDigits:2})}}`+(l!=null?`\n{${l>0?'u':'d'}|${l>0?'+':''}${Math.round(l*100)}%}`:'');},
-          rich:{v:{color:'#ece9f5',fontWeight:800,fontSize:15,lineHeight:20},d:{color:'#f87171',fontWeight:700,fontSize:11},u:{color:'#34d399',fontWeight:700,fontSize:11}}},
-        markLine:{symbol:'none',silent:true,lineStyle:{color:'#f87171',type:'dashed',width:1.5},label:{position:'insideStartTop',color:'#f87171',fontWeight:700,formatter:'$1 invertido'},data:[{yAxis:1}]}}]},330);
+    const col=v=>v<1?'#f87171':v<1.5?'#fab219':'#34d399';
+    const mx=Math.max(...r,1)*1.08,why2=['','suma preliminares','sin cancelados','sin los en camino ni devueltos','menos proveedor y fletes'];
+    const fr=v=>'$'+v.toLocaleString('es-CO',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const c1=`<div class="cpa-row flow">`+st.map((s,i)=>{const l=lost(i);
+      return (i?`<div class="cpa-arrow"><span style="color:${l!=null&&l>0?'#34d399':'#f87171'}">${l==null?'':(l>0?'+':'')+Math.round(l*100)+'%'}</span>➜<small>${why2[i]}</small></div>`:'')+
+      `<div class="cpa-card" data-tip="<b>${esc(s.n)}</b><br>${f$(s.v)} ÷ ${f$(m.inv)} invertidos = <b>${fX(r[i])}</b><br>${esc(s.why)}">
+        <div class="cpa-top"><span class="cpa-dot" style="background:${col(r[i])}"></span>${s.n}</div>
+        <div class="cpa-v" style="color:${i===st.length-1?col(r[i]):'var(--ink)'}">${fr(r[i])}</div>
+        <div class="cpa-b">por cada $1 · ROAS <b>${fX(r[i])}</b> · ${fM(s.v)}</div>
+        <div class="cpa-g"><div class="cpa-gt"><div style="width:${Math.min(100,r[i]/mx*100)}%;background:${col(r[i])}"></div><i style="left:${100/mx}%"></i></div></div>
+        <div class="cpa-m"><span>${s.why}</span></div></div>`;}).join('')+`</div>`;
     // 2) ROAS que necesitas para no perder (cuando lo que entra a Dropi = inversión) vs el que tienes
     const k=div(m.ingresado,m.factEnt); // de cada $1 entregado, cuánto entra a Dropi
     const rows=[{n:'ROAS Meta',act:div(m.factMeta,m.inv),min:m.ingresado>0?div(m.factMeta,m.ingresado):null},
@@ -710,7 +713,7 @@ function renderDetalle(m,L,M,SH){
         {name:'Mínimo para no perder',type:'bar',barWidth:16,data:rows.map(x=>x.min==null?0:+x.min.toFixed(2)),itemStyle:{color:'rgba(255,255,255,.18)',borderColor:'rgba(255,255,255,.45)',borderType:'dashed',borderWidth:1,borderRadius:[0,6,6,0]},
           label:{show:true,position:'right',color:'#948fb0',fontWeight:700,formatter:p=>fX(p.value)}}]},300);
     const rec=div(m.ingresado,m.factDesp);
-    return box('Por cada $1 que inviertes en Meta',`Así se encoge el retorno desde lo que reporta Meta hasta lo que de verdad te entra · el % rojo es lo que se pierde en cada paso · % recolectado ${fP(rec)}`,c1,1)+
+    return box('Por cada $1 que inviertes en Meta',`Así se encoge el retorno desde lo que reporta Meta hasta lo que de verdad te entra · la rayita blanca = el $1 que invertiste (por debajo pierdes) · % recolectado ${fP(rec)}`,c1,1)+
       box('¿Te alcanza el ROAS?',`ROAS mínimo para no perder plata (cuando lo que entra a Dropi = inversión) vs el que tienes · de cada $1 entregado te quedan ${k==null?'—':'$'+k.toLocaleString('es-CO',{maximumFractionDigits:2})}`,c2,1);
   })());
   // 💰 Rentabilidad: estado de resultados (de lo facturado a la ganancia), en total y por pedido entregado
