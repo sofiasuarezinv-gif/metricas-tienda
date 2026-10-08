@@ -595,20 +595,7 @@ function renderDetalle(m,L,M,SH){
   // 🛒 Ventas
   h+=sec('🛒 Ventas',
     box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Dropi sin preliminares','Preliminar recuperado','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.comp-m.shop.conv,m.shop.conv,m.comp],[CC.b,CC.a,CC.o,CC.y,CC.o],fN))+
-    box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos'))+
-    (()=>{ // solo días con ventas o pauta; por día: barra de Meta al lado de la barra de Dropi (apilada por origen)
-      const ix=days.map((d,i)=>i).filter(i=>per[i].dropi||per[i].vm);
-      const lab=ix.map(i=>{const d=days[i];return DOW[new Date(d+'T12:00:00').getDay()]+'\n'+d.slice(8)+'/'+d.slice(5,7);});
-      const col=(f)=>ix.map(i=>f(per[i])||0),tot=col(p=>p.dropi);
-      const seg=(n,c,f,top)=>({name:n,type:'bar',stack:'dropi',barMaxWidth:22,barGap:'18%',data:col(f),itemStyle:{color:c,borderRadius:top?[5,5,0,0]:0},emphasis:{focus:'series'},
-        label:top?{show:true,position:'top',color:'#ece9f5',fontWeight:800,fontSize:11,formatter:p=>tot[p.dataIndex]||''}:undefined});
-      return box('Ventas día a día',`Por cada día: <b style="color:${CC.b}">azul</b> = compras que reporta Meta · al lado, pedidos que llegaron a Dropi (tienda, preliminar recuperado o manual). Solo días con ventas o pauta.`,
-        ec('ch-ventas-dia',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${lab[p[0].dataIndex].replace('\n',' ')}</b><br>`+p.filter(x=>x.value).map(x=>`${x.marker}${x.seriesName}: <b>${x.value}</b>`).join('<br>')+`<br>Total Dropi: <b>${tot[p[0].dataIndex]}</b>`},
-          legend:LEG,grid:{left:40,right:16,top:44,bottom:ix.length>20?62:20,containLabel:true},
-          dataZoom:ix.length>20?[{type:'inside',start:Math.max(0,100-2000/ix.length),end:100},{type:'slider',height:16,bottom:6,start:Math.max(0,100-2000/ix.length),end:100,borderColor:'#2a2840',fillerColor:'rgba(124,92,255,.18)',handleStyle:{color:'#7c5cff'},textStyle:{color:'#948fb0'}}]:[],
-          xAxis:{type:'category',data:lab,...AX,axisLabel:{...AX.axisLabel,interval:0,lineHeight:14}},yAxis:{type:'value',minInterval:1,...AX},
-          series:[{name:'Ventas Meta',type:'bar',barMaxWidth:22,data:col(p=>p.vm),itemStyle:{color:CC.b,borderRadius:[5,5,0,0]},emphasis:{focus:'series'},label:{show:true,position:'top',color:'#9ec5f4',fontWeight:700,fontSize:11,formatter:p=>p.value||''}},
-            seg('Tienda',CC.a,p=>p.tienda),seg('Preliminar recuperado',CC.y,p=>p.prel),seg('Manual',CC.gray,p=>p.manual,1)]},340),1);})());
+    box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos')));
   // 🎯 CPA
   h+=sec('🎯 CPA',
     box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+'\n'+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+'\n'+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}),1));
