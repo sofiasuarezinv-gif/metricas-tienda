@@ -323,7 +323,7 @@ function calc(L,mt,sh){
   // pedidos en camino: ganancia que traerían (venta − proveedor − flete) y la esperada con la efectividad de los ya cerrados
   const procL=desp.filter(o=>!isEnt(o)&&!isDev(o)),efC=fin.length?ent.length/fin.length:0.75;
   const ganProc=sum(procL,o=>(o.venta||0)-(o.proveedor||0)-flete(o)),ganProcEsp=sum(procL,o=>efC*((o.venta||0)-(o.proveedor||0)-flete(o))-(1-efC)*(flete(o)+devFlete(o)));
-  return{ganProc,ganProcEsp,efC,shop,comp,canc:canc.length,desp:desp.length,ent:ent.length,dev:dev.length,proc:desp.length-ent.length-dev.length,
+  return{recEnt:sum(ent,recibido),recDev:sum(dev,recibido),ganProc,ganProcEsp,efC,shop,comp,canc:canc.length,desp:desp.length,ent:ent.length,dev:dev.length,proc:desp.length-ent.length-dev.length,
     ventasMeta:mt.ventas||0,factMeta:mt.fac||0,inv,prorr:mt.prorr,valDropi,factDesp,factEnt,ingresado,cProv,cTransp,cDev,costos,gan,
     fleteProm:div(cTransp,fin.length),fleteDevProm:div(cDev,dev.length),provProm:div(cProv,ent.length),
     u2,u3,um,uni:sum(L,units),of,cm,antic:antic.length,anticVal:sum(antic,o=>o.venta),tdel:tdel.length?tdel.reduce((a,b)=>a+b,0)/tdel.length:null,est:anyEst(fin)};
@@ -463,7 +463,7 @@ function renderMetricas(){
   if(DIM==='general'){
     // métricas principales (las demás quedan en "Ver todas las métricas")
     const KEY=[['Inversión','$',m=>m.inv,'Gasto total en Meta'],['Ventas Meta','n',m=>m.ventasMeta,'Compras atribuidas por Meta'],['CPA','$',m=>div(m.inv,m.ventasMeta),'Inversión ÷ ventas Meta · % CPA = inversión ÷ facturación Meta',0,['% CPA',m=>div(m.inv,m.factMeta)]],
-      ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
+      ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Dinero ingresado a Dropi','$',m=>m.ingresado,m=>`${m.ent} entregados (venta − proveedor − flete): ${f$(m.recEnt)} · ${m.dev} devoluciones (flete ida y vuelta): −${f$(Math.abs(m.recDev))}`],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
       ['Entregados','n',m=>m.ent,'Efectividad = entregados ÷ despachados',0,['efectividad',m=>div(m.ent,m.desp)]],['Cancelados','n',m=>m.canc,'Cancelación = cancelados ÷ completos',0,['cancelación',m=>div(m.canc,m.comp)]],
       ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
       ['Ganancia en procesamiento','$',m=>m.ganProc,m=>`Si se entregan todos los en camino (venta − proveedor − flete). Esperada con tu efectividad de ${fP(m.efC)}: ${f$(m.ganProcEsp)}`,1]];
