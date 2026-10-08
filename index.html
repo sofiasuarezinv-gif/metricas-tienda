@@ -165,7 +165,6 @@
     <div class="brand"><div class="lg">📊</div><div><h1>Métricas Tienda</h1><p>Dropi · Meta · Shopify</p></div></div>
     <nav class="nav">
       <a class="active" id="nav-metricas" onclick="go('metricas')">📊 Métricas</a>
-      <a id="nav-pedidos" onclick="go('pedidos')">📋 Pedidos</a>
       <a id="nav-proy" onclick="go('proy')">🔮 Proyecciones</a>
       <div class="sep"></div>
       <a id="nav-config" onclick="go('config')">⚙️ Configuración</a>
@@ -188,7 +187,6 @@
       </div>
     </div>
     <div id="view-metricas"></div>
-    <div id="view-pedidos" style="display:none"></div>
     <div id="view-proy" style="display:none"></div>
     <div id="view-config" style="display:none"></div>
   </main>
@@ -405,7 +403,7 @@ function syncbar(){
 function render(){
   syncbar();
   $('#rangebar').style.display=VIEW==='config'?'none':'';
-  if(VIEW==='metricas')renderMetricas();else if(VIEW==='pedidos')renderPedidos();else if(VIEW==='proy')renderProy();else renderConfig();
+  if(VIEW==='metricas')renderMetricas();else if(VIEW==='proy')renderProy();else renderConfig();
 }
 function renderMetricas(){
   const r=rangeDates();
@@ -440,22 +438,6 @@ function renderMetricas(){
     body=note+h+'</tbody></table></div>';
   }
   $('#view-metricas').innerHTML=head+dimsH+body;
-}
-
-// ───── Pedidos (detalle por fila, como el Excel de Dropi) ─────
-let PQ='';
-function renderPedidos(){
-  const r=rangeDates(),q=strip(PQ);
-  const L=ORDERS.filter(o=>inRange(o.fecha,r)).filter(o=>!q||strip([o.id,o.nombre,o.ciudad,o.transportadora,o.producto,o.estado,o.origen].join(' ')).includes(q)).sort((a,b)=>a.fecha<b.fecha?1:-1);
-  const fl=o=>o.flete>0?'':o.flete_cot>0?' <span title="cotizado en Dropi" style="opacity:.6">ⓒ</span>':' <span title="estimado" style="opacity:.6">≈</span>';
-  const tot=L.reduce((s,o)=>s+(recibido(o)||0),0);
-  const ORG={shopify:'Tienda',preliminar:'Preliminar',manual:'Manual'};
-  $('#view-pedidos').innerHTML=`<h2 class="title">📋 Pedidos</h2>
-   <p class="muted">${L.length} pedidos · Recibido en Dropi: <b style="color:${tot<0?'var(--red)':'var(--green)'}">${f$(tot)}</b> · flete: real del Excel, ⓒ cotizado en Dropi, ≈ estimado.</p>
-   <div class="filters"><input id="pq" placeholder="Buscar cliente, ciudad, producto, estado…" value="${PQ.replace(/"/g,'&quot;')}" oninput="PQ=this.value;clearTimeout(window._pq);window._pq=setTimeout(()=>{renderPedidos();const e=$('#pq');e.focus();e.setSelectionRange(e.value.length,e.value.length);},250)" style="background:var(--bg2);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:9px;font:600 13px Inter;min-width:280px"></div>
-   <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>ID</th><th>Cliente</th><th>Ciudad</th><th>Transp.</th><th>Producto</th><th>Und</th><th>Estado</th><th>Origen</th><th>Venta</th><th>Proveedor</th><th>Flete</th><th>Devolución</th><th>Recibido en Dropi</th></tr></thead><tbody>
-   ${L.map(o=>{const rc=recibido(o);return`<tr><td>${o.fecha}</td><td>${o.id}</td><td>${o.nombre||''}</td><td>${o.ciudad||''}</td><td>${o.transportadora||''}</td><td style="white-space:normal;min-width:160px">${o.producto||'—'}</td><td class="num">${units(o)}</td><td>${o.estado}</td><td>${ORG[o.origen]||'—'}</td><td class="num">${f$(o.venta)}</td><td class="num">${f$(o.proveedor)}</td><td class="num">${isCanc(o)?'—':f$(flete(o))+fl(o)}</td><td class="num">${isDev(o)?f$(devFlete(o)):'—'}</td><td class="num ${rc==null?'na':rc<0?'neg':'pos'}">${rc==null?'pendiente':f$(rc)}</td></tr>`;}).join('')}
-   </tbody></table></div>`;
 }
 
 // ───── Proyecciones ─────
@@ -554,7 +536,7 @@ async function setFlete(t,v){const f=Object.assign({},CFG.fletes||{});f[t]=+v;aw
 async function setProd(mp,v){const m=Object.assign({},CFG.prod_map||{});m[mp]=v;await saveCfg({prod_map:m});toast('Producto asignado');}
 async function refreshMeta(){toast('Actualizando Meta…');try{const r=await fetch('/api/refresh-meta',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const j=await r.json();if(!r.ok)throw new Error(j.detail||'error');await load();toast('Meta actualizado ('+j.filas+' filas)');}catch(e){toast(e.message);}}
 
-function go(v){VIEW=v;['metricas','pedidos','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
+function go(v){VIEW=v;['metricas','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
 async function load(){
   $('#view-metricas').innerHTML='<div class="empty">Cargando datos…</div>';
   try{
