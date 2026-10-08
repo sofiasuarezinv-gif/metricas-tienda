@@ -180,6 +180,16 @@
   /* solo datos: sin textos explicativos */
   .stat .f,.chartsub,.pl-d,.pl-ks,.esttag,.cpa-arrow small{display:none!important}
   .cpa-row.solo .cpa-b,.cpa-row.solo .cpa-g,.cpa-row.solo .cpa-m,.cpa-row.solo .cpa-n{display:none}
+  /* tabla de estados por grupo */
+  table.gt{width:100%;border-collapse:separate;border-spacing:4px;background:transparent;border:0;font-size:13px}
+  table.gt th{background:transparent;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:700;text-align:center;white-space:normal;padding:4px 6px;vertical-align:bottom}
+  .gt-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  table.gt td{text-align:center;border-radius:8px;padding:9px 6px;border:0;color:#fff;transition:transform .12s}
+  table.gt td:not(.gt-n):not(.gt-e):not(.gt-z):hover{transform:scale(1.05)}
+  table.gt td b{display:block;font-size:15px;font-weight:800} table.gt td small{display:block;font-size:11px;opacity:.85;font-weight:600}
+  table.gt td.gt-z{color:var(--sub);opacity:.4;background:rgba(255,255,255,.02)}
+  table.gt td.gt-n{text-align:left;background:var(--bg2)} table.gt td.gt-n small{color:var(--sub);opacity:1}
+  table.gt td.gt-e{font-size:16px;font-weight:800;background:var(--bg2)}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -623,16 +633,13 @@ function estadoPorGrupo(id,G,h){
   const nm=s=>{s=String(s).replace(/ \((lun-vie|sáb-dom)\)/,'');return s.length>22?s.slice(0,21)+'…':s;};
   // recuadros arriba: % del total y pedidos de cada uno
   const cards=`<div class="pl-kpis">${rows.map(r=>`<div class="pl-k" style="border-left:3px solid #7c5cff"><div class="pl-kl">${nm(r.n)}</div><div class="pl-kv">${fP(r.m.comp/TT)}</div><div style="font-size:12px;color:var(--sub);font-weight:600">${r.m.comp} ${r.m.comp===1?'pedido':'pedidos'}</div></div>`).join('')}</div>`;
-  return cards+ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos (${fP(r.m.comp/TT)} del total)<br>`+S.map(([n,f,c])=>`<span style="color:${c}">●</span> ${n}: <b>${f(r)}</b> (${fP(div(f(r),r.m.comp))})`).join('<br>')+
-      `<br>Efectividad (entregados ÷ despachados): <b>${fP(ef(r))}</b><br>Solo pedidos ya cerrados (entregados ÷ entregados+devueltos): ${fP(div(r.m.ent,r.m.ent+r.m.dev))}`;}},
-    legend:LEG,grid:{left:10,right:10,top:36,bottom:4,containLabel:true},
-    xAxis:{type:'value',max:100,show:false},
-    yAxis:[{type:'category',inverse:true,data:rows.map((r,i)=>i),...AX,axisLine:{show:false},axisLabel:{formatter:i=>`{n|${nm(rows[i].n)}}\n{s|${rows[i].m.comp} ${rows[i].m.comp===1?'pedido':'pedidos'} ·${fP(rows[i].m.comp/TT)} del total}`,rich:{n:{color:'#ece9f5',fontWeight:700,fontSize:12.5,lineHeight:18,align:'right'},s:{color:'#948fb0',fontSize:11,align:'right'}}}},
-      {type:'category',inverse:true,data:rows.map((r,i)=>i),position:'right',axisLine:{show:false},axisTick:{show:false},
-        axisLabel:{formatter:i=>{const v=ef(rows[i]);return`{e${i}|${v==null?'—':fP(v)}}\n{s|efectividad}`;},rich:Object.assign({s:{color:'#948fb0',fontSize:10.5,align:'left'}},...rows.map((r,i)=>({['e'+i]:{color:efc(ef(r)),fontWeight:800,fontSize:16,lineHeight:20,align:'left'}})))}}],
-    series:S.map(([n,f,c],i)=>({name:n,type:'bar',stack:'t',barWidth:26,data:rows.map(r=>+(100*f(r)/(r.m.comp||1)).toFixed(1)),
-      itemStyle:{color:c,borderRadius:0,borderColor:'#101019',borderWidth:1},emphasis:{focus:'series'},
-      label:{show:true,color:'#fff',fontWeight:800,fontSize:11.5,formatter:p=>{const n=f(rows[p.dataIndex]);return p.value>=11?n+' · '+Math.round(p.value)+'%':p.value>=4?String(n):'';}}}))},h||Math.max(170,rows.length*54+56));
+  // tabla: una columna por estado (con su nombre y color), cada casilla = pedidos y %; el fondo se intensifica con el %
+  const hex=(c,a)=>{const n=parseInt(c.slice(1),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;};
+  const th=S.map(([n,,c])=>`<th><span class="gt-dot" style="background:${c}"></span>${n}</th>`).join('');
+  const tr=rows.map(r=>{const tds=S.map(([n,f,c])=>{const v=f(r),p=div(v,r.m.comp)||0;
+      return v?`<td style="background:${hex(c,.14+.66*p)}" data-tip="<b>${esc(r.n)}</b> · ${n}<br>${v} de ${r.m.comp} pedidos · ${fP(p)}"><b>${v}</b><small>${fP(p)}</small></td>`:`<td class="gt-z">—</td>`;}).join('');
+    const e=ef(r);return`<tr><td class="gt-n"><b>${nm(r.n)}</b><small>${r.m.comp} ${r.m.comp===1?'pedido':'pedidos'}</small></td>${tds}<td class="gt-e" style="color:${efc(e)}">${e==null?'—':fP(e)}</td></tr>`;}).join('');
+  return cards+`<div class="tablewrap"><table class="gt"><thead><tr><th></th>${th}<th>Efectividad</th></tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 
 // detalle de General: cada sección con sus gráficas
@@ -787,7 +794,7 @@ function renderDetalle(m,L,M,SH){
     box('Ventas por comentarios',m.cm.n?`Efectividad ${fP(div(m.cm.e,m.cm.n))}`:'',m.cm.n?donut('ch-com',[{name:'Entregados',value:m.cm.e,c:CC.good},{name:'Devueltos',value:m.cm.v,c:CC.ser},{name:'Cancelados',value:m.cm.c,c:CC.crit}],fN(m.cm.n),'pedidos',280):'<div class="empty" style="padding:40px">Aún no hay pedidos marcados como "comentarios de Facebook"</div>'));
   // 📍 Distribución
   h+=sec('📍 Por transportadora, producto, ciudad y día de la semana',
-    box('Por transportadora','Cada barra = 100% de sus pedidos · a la derecha la efectividad (verde ≥80%, amarillo ≥65%, rojo menos)',estadoPorGrupo('ch-g-tr',groupsFor('transp',L,[])),1)+
+    box('Por transportadora','',estadoPorGrupo('ch-g-tr',groupsFor('transp',L,[])),1)+
     box('Por producto','',estadoPorGrupo('ch-g-pr',groupsFor('producto',L,[])),1)+
     box('Ciudades principales','',estadoPorGrupo('ch-g-ci',groupsFor('ciudad',L,[])),1)+
     box('Fin de semana vs entre semana','',estadoPorGrupo('ch-g-se',groupsFor('semana',L,[])),1));
