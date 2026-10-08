@@ -512,10 +512,10 @@ const LEG={textStyle:{color:'#948fb0',fontSize:12},itemWidth:12,itemHeight:12,ic
 const grad=(c)=>({type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:c+'66'},{offset:1,color:c+'05'}]});
 // dona con texto al centro
 function donut(id,data,center,sub,h,money){
-  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${money?f$(p.value):fN(p.value)} · ${p.percent}%`},legend:{...LEG,top:'bottom'},
-    title:{text:center,subtext:sub,left:'center',top:'38%',textStyle:{color:'#ece9f5',fontSize:24,fontWeight:800},subtextStyle:{color:'#948fb0',fontSize:11}},
-    series:[{type:'pie',radius:['52%','74%'],center:['50%','45%'],padAngle:2,itemStyle:{borderRadius:6,borderColor:'#101019',borderWidth:2},
-      label:money?{show:true,position:'inside',color:'#fff',fontWeight:800,formatter:p=>p.percent>=6?`${Math.round(p.percent)}%`:''}:{show:true,color:'#ece9f5',formatter:p=>p.value?`${p.value}`:'',fontWeight:700},labelLine:{length:8,length2:6},
+  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${money?f$(p.value):fN(p.value)} · ${p.percent}%`},legend:{...LEG,top:'bottom',show:!money},
+    title:{text:center,subtext:sub,left:'center',top:money?'41%':'38%',textStyle:{color:'#ece9f5',fontSize:24,fontWeight:800},subtextStyle:{color:'#948fb0',fontSize:11}},
+    series:[{type:'pie',radius:money?['44%','64%']:['52%','74%'],center:money?['50%','50%']:['50%','45%'],padAngle:2,itemStyle:{borderRadius:6,borderColor:'#101019',borderWidth:2},
+      label:money?{show:true,position:'outside',color:'#ece9f5',fontWeight:700,fontSize:12,lineHeight:16,width:120,overflow:'break',formatter:p=>[p.name,fP(p.percent/100)+' · '+fM(p.value)].join('\n')}:{show:true,color:'#ece9f5',formatter:p=>p.value?`${p.value}`:'',fontWeight:700},labelLine:{length:8,length2:6},
       emphasis:{scale:true,scaleSize:8,label:{fontSize:14}},data:data.filter(d=>d.value>0).map(d=>({name:d.name,value:d.value,itemStyle:{color:d.c}}))}]},h||300);
 }
 // barras con un color por barra
@@ -614,11 +614,14 @@ function renderDetalle(m,L,M,SH){
   h+=sec('💰 Rentabilidad'+(m.est?'<span class="esttag">algunos fletes estimados</span>':''),
     box('Ingresos vs costos',`Pedidos entregados · ${m.gan<0?'pérdida':'ganancia'} neta <b style="color:${m.gan<0?'var(--red)':'var(--green)'}">${f$(m.gan)}</b> · margen ${fP(div(m.gan,m.ingresado))}`,
       ec('ch-pnl',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${p[0].name}</b><br>`+p.filter(x=>x.value).map(x=>`${x.marker}${x.seriesName}: <b>${f$(x.value)}</b>`).join('<br>')+(p[0].dataIndex===1?`<br>Total costos: <b>${f$(m.costos)}</b>`:'')},
-        legend:{...LEG,top:'bottom'},grid:{left:70,right:20,top:34,bottom:96},
+        legend:{show:false},grid:{left:60,right:200,top:34,bottom:30},
         xAxis:{type:'category',data:['Ingresos','Costos'],...AX,axisLabel:{...AX.axisLabel,fontSize:13,fontWeight:700,color:'#ece9f5'}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
-        series:[{name:'Facturación entregada',type:'bar',stack:'p',barWidth:'46%',data:[m.factEnt,0],itemStyle:{color:CC.good,borderRadius:[8,8,0,0]},label:{show:true,position:'top',color:'#ece9f5',fontWeight:800,formatter:p=>p.value?f$(p.value):''}}]
-          .concat(costos.map((c,i)=>({name:c.n,type:'bar',stack:'p',data:[0,c.v],itemStyle:{color:c.c,borderRadius:i===costos.length-1?[8,8,0,0]:0},emphasis:{focus:'series'},
-            label:i===costos.length-1?{show:true,position:'top',color:'#ece9f5',fontWeight:800,formatter:p=>p.dataIndex===1?f$(m.costos):''}:undefined})))},340))+
+        // cada segmento dice qué es y cuánto (adentro si cabe, al lado si es pequeño); arriba el total de cada barra
+        series:[{name:'Facturación entregada',type:'bar',stack:'p',barWidth:'50%',data:[m.factEnt,0],itemStyle:{color:CC.good,borderRadius:[8,8,0,0]},
+            label:{show:true,position:'inside',color:'#fff',fontWeight:800,fontSize:13,lineHeight:18,formatter:p=>p.value?['Facturación','entregada',fM(p.value)].join('\n'):''}}]
+          .concat(costos.map((c,i)=>{const big=c.v/(m.costos||1)>=.12;return{name:c.n,type:'bar',stack:'p',data:[0,c.v],itemStyle:{color:c.c,borderRadius:i===costos.length-1?[8,8,0,0]:0},emphasis:{focus:'series'},
+            label:{show:c.v>0,position:'right',distance:10,color:'#ece9f5',fontWeight:700,fontSize:12,formatter:p=>p.dataIndex!==1?'':`{d|●} ${c.n} · ${fM(c.v)}`,rich:{d:{color:c.c,fontSize:14}}}};}))
+          .concat([{name:'_total',type:'bar',stack:'p',data:[0,0],tooltip:{show:false},label:{show:true,position:'top',color:'#ece9f5',fontWeight:800,fontSize:13,formatter:p=>p.dataIndex?'Costos '+f$(m.costos):'Ingresos '+f$(m.factEnt)}}])},360))+
     box('¿En qué se va cada peso?','Reparto de la facturación entregada',donut('ch-reparto',costos.map(c=>({name:c.n,value:Math.round(c.v),c:c.c})).concat(m.gan>0?[{name:'Ganancia',value:Math.round(m.gan),c:CC.good}]:[]),fP(div(m.gan,m.factEnt)),m.gan<0?'pérdida sobre ventas':'ganancia sobre ventas',340,1))+
     box('Ganancia día a día','Verde/rojo = lo que ya entró de los pedidos de ese día − la inversión del día · claro = lo que se espera de los que siguen en camino (efectividad '+fP(m.efC)+') · líneas = acumulado',
       ec('ch-gan-dia',{tooltip:{trigger:'axis',valueFormatter:v=>f$(v)},legend:LEG,grid:{left:70,right:96,top:36,bottom:days.length>14?62:30},
