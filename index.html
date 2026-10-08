@@ -770,7 +770,7 @@ function renderDetalle(m,L,M,SH){
       const R=[['1 unidad',u1,1,CC.b],['2 unidades',m.u2,2,CC.a],['3 unidades',m.u3,3,CC.y]].concat(u4?[['4 o más',u4,4,CC.o]]:[]);
       const und=L.filter(o=>units(o)>=4).reduce((s,o)=>s+units(o),0),uOf=r=>r[2]<4?r[1]*r[2]:und,tot=m.comp||1;
       const k=(l,v)=>`<div class="pl-k"><div class="pl-kl">${l}</div><div class="pl-kv">${v}</div></div>`;
-      return box('Ventas por unidades','',
+      return box('Ventas por unidades','',`<div class="pl-kpis">${R.map(r=>`<div class="pl-k" style="border-left:3px solid ${r[3]}"><div class="pl-kl">${r[0]}</div><div class="pl-kv">${fP(r[1]/tot)}</div><div style="font-size:12px;color:var(--sub);font-weight:600">${r[1]} ${r[1]===1?'venta':'ventas'}</div></div>`).join('')}</div>`+
         ec('ch-uni',{tooltip:{trigger:'item',formatter:p=>{const r=R[p.dataIndex];return`<b>${r[0]}</b><br>${r[1]} ventas · ${fP(r[1]/tot)}<br>${uOf(r)} unidades`;}},
           grid:{left:10,right:150,top:4,bottom:4,containLabel:true},xAxis:{type:'value',show:false,max:Math.max(...R.map(r=>r[1]))*1.02||1},
           yAxis:{type:'category',inverse:true,data:R.map(r=>r[0]),...AX,axisLine:{show:false},axisLabel:{color:'#ece9f5',fontWeight:700,fontSize:13,margin:14}},
