@@ -180,7 +180,6 @@
     <div class="brand"><div class="lg">📊</div><div><h1>Métricas Tienda</h1><p>Dropi · Meta · Shopify</p></div></div>
     <nav class="nav">
       <a class="active" id="nav-metricas" onclick="go('metricas')">📊 Métricas</a>
-      <a id="nav-graficas" onclick="go('graficas')">📈 Gráficas</a>
       <a id="nav-proy" onclick="go('proy')">🔮 Proyecciones</a>
       <div class="sep"></div>
       <a id="nav-config" onclick="go('config')">⚙️ Configuración</a>
@@ -203,7 +202,6 @@
       </div>
     </div>
     <div id="view-metricas"></div>
-    <div id="view-graficas" style="display:none"></div>
     <div id="view-proy" style="display:none"></div>
     <div id="view-config" style="display:none"></div>
   </main>
@@ -433,7 +431,7 @@ function syncbar(){
 function render(){
   syncbar();
   $('#rangebar').style.display=VIEW==='config'?'none':'';
-  if(VIEW==='metricas')renderMetricas();else if(VIEW==='graficas')renderGraficas();else if(VIEW==='proy')renderProy();else renderConfig();
+  if(VIEW==='metricas')renderMetricas();else if(VIEW==='proy')renderProy();else renderConfig();
 }
 function renderMetricas(){
   const r=rangeDates();
@@ -452,7 +450,7 @@ function renderMetricas(){
       ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
       ['Ganancia en procesamiento','$',m=>m.ganProc,m=>`Si se entregan todos los en camino (venta − proveedor − flete). Esperada con tu efectividad de ${fP(m.efC)}: ${f$(m.ganProcEsp)}`,1]];
     body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${fP(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
-    body+='<details class="acc" style="margin-top:28px"><summary>Ver todas las métricas</summary><div class="acc-body">';
+    body+='<details class="acc" open style="margin-top:28px"><summary>Ver todas las métricas</summary><div class="acc-body">';
     // cada % va debajo del número al que corresponde
     const ATT={'% de efectividad':'Pedidos entregados','% de cancelación':'Pedidos cancelados','% de devoluciones':'Pedidos devueltos','% despachados':'Pedidos despachados',
       '% pedidos a oficina':'Pedidos a oficina','% efectividad oficina':'Entregados oficina','% cancelación oficina':'Cancelados oficina','% devoluciones oficina':'Devueltos oficina',
@@ -461,8 +459,11 @@ function renderMetricas(){
       '% CPA Meta':'CPA Meta','% CPA Dropi':'CPA Dropi'};
     const kids={};METRICS.forEach(d=>{if(ATT[d.l])(kids[ATT[d.l]]=kids[ATT[d.l]]||[]).push(d);});
     let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
+    const CH=buildCharts(),SK={'📦 Pedidos':'pedidos','🛒 Ventas':'ventas','🎯 CPA':'cpa','🧾 Preliminares':'prelim','💵 ROAS':'roas','💰 Rentabilidad':'rent'};let curK=null;
+    const charts=k=>k&&CH[k]&&CH[k].length?`<div class="chartgrid" style="margin-top:14px">${CH[k].join('')}</div>`:'';
     METRICS.forEach(d=>{
       if(ATT[d.l])return;
+      if(d.s){flush();body+=charts(curK);curK=SK[d.s];}
       if(d.r){flush();sec='<div class="cards" style="margin-top:14px">';return;}
       if(d.s2){flush();body+=`<div class="sec-h" style="font-size:11.5px;opacity:.85;margin-top:20px">${d.s2}</div>`;sec='<div class="cards">';return;}
       if(d.s){flush();body+=`<div class="sec-h">${d.s}${d.est&&tot.est?'<span class="esttag">fletes estimados donde Dropi no los da</span>':''}</div>`;sec='<div class="cards">';return;}
@@ -470,7 +471,9 @@ function renderMetricas(){
       const v=d.f(tot);const c=d.sign?(v<0?'red':'grn'):'';
       const kk=kids[d.l]||[],pcs=kk.map(k=>`<div class="pc">${FMT[k.t](k.f(tot))}<small>${k.l.replace(/^% (de )?/,'')}</small></div>`).join('');
       sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${pcs}${d.d?`<div class="f">${d.d}${kk.filter(k=>k.d).map(k=>' · '+k.l.replace(/^% (de )?/,'')+' = '+k.d).join('')}</div>`:''}</div>`;
-    });flush();body+='</div></details>';
+    });flush();body+=charts(curK);
+    if(CH.dist.length)body+=`<div class="sec-h">📍 Por transportadora, producto, ciudad y día de la semana</div><div class="chartgrid">${CH.dist.join('')}</div>`;
+    body+='</div></details>';
   }else{
     const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
     const G=groupsFor(DIM,L,M).map(g=>({...g,m:calc(g.list,g.mt,shKey?{orders:SH.orders.filter(o=>shKey(o.fecha)===g.name),drafts:SH.drafts.filter(d=>shKey(d.fecha)===g.name)}:null)}));
@@ -545,52 +548,53 @@ function waterfall(steps){
   return`<svg viewBox="0 0 ${W} ${H}" class="tc">${o}</svg>`;
 }
 
-function renderGraficas(){
+// arma las gráficas de cada sección de Métricas → General
+function buildCharts(){
   const r=rangeDates();
   const L=ORDERS.filter(o=>inRange(o.fecha,r)),M=META.filter(m=>inRange(m.fecha,r));
   const SH={orders:SHOP.orders.filter(o=>inRange(o.fecha,r)),drafts:SHOP.drafts.filter(d=>inRange(d.fecha,r))};
   const msum=X=>({inv:X.reduce((s,m)=>s+m.inversion,0),ventas:X.reduce((s,m)=>s+m.ventas,0),fac:X.reduce((s,m)=>s+m.facturacion,0)});
   const m=calc(L,msum(M),SH);
-  const head=`<h2 class="title">📈 Gráficas</h2><p class="muted">${r.from==='2000-01-01'?'Todo el histórico':r.from+' → '+r.to} · pasa el mouse por encima para ver el detalle.</p>`;
-  if(!L.length&&!M.length){$('#view-graficas').innerHTML=head+'<div class="empty">No hay datos en este rango.</div>';return;}
+  const X={pedidos:[],ventas:[],cpa:[],prelim:[],roas:[],rent:[],dist:[]};
+  if(!L.length&&!M.length)return X;
   // días del rango con datos
   const ds=[...new Set([...L.map(o=>o.fecha),...M.map(x=>x.fecha)])].sort();
   const days=[];if(ds.length){for(let d=ds[0];d<=ds[ds.length-1];d=addDays(d,1))days.push(d);}
   const per=days.map(d=>{const Ld=L.filter(o=>o.fecha===d),Md=msum(M.filter(x=>x.fecha===d));return{inv:Md.inv,vm:Md.ventas,fm:Md.fac,dropi:Ld.length,shop:SH.orders.filter(o=>o.fecha===d).length,prel:SH.drafts.filter(x=>x.fecha===d&&x.valido).length};});
-  const out=[];
   // 1. estado de pedidos
-  out.push(card('Estado de los pedidos',stack([{l:'Entregados',v:m.ent,c:CC.good},{l:'En proceso',v:m.proc,c:CC.b},{l:'Devueltos',v:m.dev,c:CC.ser},{l:'Cancelados',v:m.canc,c:CC.crit}]),
+  X.pedidos.push(card('Estado de los pedidos',stack([{l:'Entregados',v:m.ent,c:CC.good},{l:'En proceso',v:m.proc,c:CC.b},{l:'Devueltos',v:m.dev,c:CC.ser},{l:'Cancelados',v:m.canc,c:CC.crit}]),
     `${m.comp} pedidos · efectividad <b>${fP(div(m.ent,m.desp))}</b> · cancelación <b>${fP(div(m.canc,m.comp))}</b> · devolución <b>${fP(div(m.dev,m.desp))}</b>`));
   // 2. origen de ventas
-  out.push(card('¿De dónde vienen las ventas?',hbars([{l:'Ventas Meta (reporte)',v:m.ventasMeta,c:CC.b},{l:'Ventas Shopify',v:m.shop.ventas,c:CC.a},{l:'Preliminar recuperado',v:m.shop.conv,c:CC.y},{l:'Manuales',v:m.shop.manual,c:CC.gray},{l:'Total en Dropi',v:m.comp,c:CC.o}],fN)));
+  X.ventas.push(card('¿De dónde vienen las ventas?',hbars([{l:'Ventas Meta (reporte)',v:m.ventasMeta,c:CC.b},{l:'Ventas Shopify',v:m.shop.ventas,c:CC.a},{l:'Preliminar recuperado',v:m.shop.conv,c:CC.y},{l:'Manuales',v:m.shop.manual,c:CC.gray},{l:'Total en Dropi',v:m.comp,c:CC.o}],fN)));
   // 3. inversión diaria
-  out.push(card('Inversión diaria en Meta',timeChart(days,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],f$,'col',900),`Total ${f$(m.inv)} · promedio ${f$(m.inv/Math.max(1,per.filter(p=>p.inv>0).length))} por día con pauta`,1));
+  X.roas.push(card('Inversión diaria en Meta',timeChart(days,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],f$,'col',900),`Total ${f$(m.inv)} · promedio ${f$(m.inv/Math.max(1,per.filter(p=>p.inv>0).length))} por día con pauta`,1));
   // 4. ventas por día
-  out.push(card('Ventas por día',timeChart(days,[{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)},{n:'Shopify',c:CC.a,v:per.map(p=>p.shop)},{n:'Dropi',c:CC.o,v:per.map(p=>p.dropi)},{n:'Preliminares',c:CC.y,v:per.map(p=>p.prel),dash:1}],fN)));
+  X.ventas.push(card('Ventas por día',timeChart(days,[{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)},{n:'Shopify',c:CC.a,v:per.map(p=>p.shop)},{n:'Dropi',c:CC.o,v:per.map(p=>p.dropi)},{n:'Preliminares',c:CC.y,v:per.map(p=>p.prel),dash:1}],fN)));
   // 5. CPA por día
-  out.push(card('CPA por día',timeChart(days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?p.inv/p.vm:null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?p.inv/p.dropi:null)}],f$),`CPA Meta ${f$(div(m.inv,m.ventasMeta))} · CPA Dropi ${f$(div(m.inv,m.comp))} en el rango`));
+  X.cpa.push(card('CPA por día',timeChart(days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?p.inv/p.vm:null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?p.inv/p.dropi:null)}],f$),`CPA Meta ${f$(div(m.inv,m.ventasMeta))} · CPA Dropi ${f$(div(m.inv,m.comp))} en el rango`));
   // 6. ROAS por día
-  out.push(card('ROAS Meta por día',timeChart(days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?p.fm/p.inv:null)}],fX),`ROAS Meta del rango: <b>${fX(div(m.factMeta,m.inv))}</b>`));
+  X.roas.push(card('ROAS Meta por día',timeChart(days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?p.fm/p.inv:null)}],fX),`ROAS Meta del rango: <b>${fX(div(m.factMeta,m.inv))}</b>`));
   // 7. facturación
-  out.push(card('Facturación vs inversión',hbars([{l:'Inversión',v:m.inv,c:CC.gray},{l:'Facturación Meta',v:m.factMeta,c:CC.b},{l:'Fact. incl. preliminares',v:m.factMeta+m.shop.valPrelim,c:CC.b},{l:'Facturación despachada',v:m.factDesp,c:CC.o},{l:'Facturación entregada',v:m.factEnt,c:CC.a},{l:'Dinero ingresado a Dropi',v:m.ingresado,c:CC.y}],f$)));
+  X.roas.push(card('Facturación vs inversión',hbars([{l:'Inversión',v:m.inv,c:CC.gray},{l:'Facturación Meta',v:m.factMeta,c:CC.b},{l:'Fact. incl. preliminares',v:m.factMeta+m.shop.valPrelim,c:CC.b},{l:'Facturación despachada',v:m.factDesp,c:CC.o},{l:'Facturación entregada',v:m.factEnt,c:CC.a},{l:'Dinero ingresado a Dropi',v:m.ingresado,c:CC.y}],f$)));
   // 8. ROAS comparativo
   const ro=[['ROAS Meta',div(m.factMeta,m.inv),CC.b],['ROAS incl. preliminares',div(m.factMeta+m.shop.valPrelim,m.inv),CC.b],['ROAS despachado',div(m.factDesp,m.inv),CC.o],['ROAS entregado',div(m.factEnt,m.inv),CC.a],['ROAS recolectado',div(m.ingresado,m.inv),CC.y]];
-  out.push(card('ROAS',hbars(ro.map(([l,v,c])=>({l,v:v||0,c,txt:fX(v)})),fX),'Recolectado = lo que de verdad entró a Dropi ÷ inversión. Por debajo de 1,00x se pierde plata.'));
+  X.roas.push(card('ROAS',hbars(ro.map(([l,v,c])=>({l,v:v||0,c,txt:fX(v)})),fX),'Recolectado = lo que de verdad entró a Dropi ÷ inversión. Por debajo de 1,00x se pierde plata.'));
   // 9. preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
-  out.push(card('Preliminares',hbars([{l:'Preliminares',v:m.shop.prelim||0,c:CC.y},{l:'Recuperados',v:m.shop.conv,c:CC.y,sub:fP(div(m.shop.prelimConvD,m.shop.prelim))+' conversión'},{l:'Entregados',v:pe,c:CC.good,sub:fP(m.shop.efPrelim)+' efectividad'}],fN)));
+  X.prelim.push(card('Preliminares',hbars([{l:'Preliminares',v:m.shop.prelim||0,c:CC.y},{l:'Recuperados',v:m.shop.conv,c:CC.y,sub:fP(div(m.shop.prelimConvD,m.shop.prelim))+' conversión'},{l:'Entregados',v:pe,c:CC.good,sub:fP(m.shop.efPrelim)+' efectividad'}],fN)));
   // 10. CPA comparativo
-  out.push(card('CPA',hbars([{l:'CPA Meta',v:div(m.inv,m.ventasMeta)||0,c:CC.b,sub:fP(div(m.inv,m.factMeta))},{l:'CPA Dropi',v:div(m.inv,m.comp)||0,c:CC.o,sub:fP(div(m.inv,m.valDropi))},{l:'CPA despachado',v:div(m.inv,m.desp)||0,c:CC.o},{l:'CPA entregado',v:div(m.inv,m.ent)||0,c:CC.a}],f$)));
+  X.cpa.unshift(card('CPA',hbars([{l:'CPA Meta',v:div(m.inv,m.ventasMeta)||0,c:CC.b,sub:fP(div(m.inv,m.factMeta))},{l:'CPA Dropi',v:div(m.inv,m.comp)||0,c:CC.o,sub:fP(div(m.inv,m.valDropi))},{l:'CPA despachado',v:div(m.inv,m.desp)||0,c:CC.o},{l:'CPA entregado',v:div(m.inv,m.ent)||0,c:CC.a}],f$)));
   // 11. cascada de rentabilidad
-  out.push(card('¿A dónde se va la plata? (rentabilidad)',waterfall([{l:'Facturación entregada',v:m.factEnt,tipo:'='},{l:'Costo proveedores',v:m.cProv,tipo:'-'},{l:'Fletes entregas',v:m.cTransp-L.filter(isDev).reduce((s,o)=>s+flete(o),0),tipo:'-'},{l:'Fletes devoluciones',v:L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0),tipo:'-'},{l:'Dinero ingresado',v:m.ingresado,tipo:'='},{l:'Inversión Meta',v:m.inv,tipo:'-'},{l:'Ganancia neta',v:m.gan,tipo:'=',last:1}]),
+  X.rent.push(card('¿A dónde se va la plata? (rentabilidad)',waterfall([{l:'Facturación entregada',v:m.factEnt,tipo:'='},{l:'Costo proveedores',v:m.cProv,tipo:'-'},{l:'Fletes entregas',v:m.cTransp-L.filter(isDev).reduce((s,o)=>s+flete(o),0),tipo:'-'},{l:'Fletes devoluciones',v:L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0),tipo:'-'},{l:'Dinero ingresado',v:m.ingresado,tipo:'='},{l:'Inversión Meta',v:m.inv,tipo:'-'},{l:'Ganancia neta',v:m.gan,tipo:'=',last:1}]),
     `Ganancia en camino: <b>${f$(m.ganProc)}</b> si se entregan los ${m.proc} pedidos en proceso (esperada ${f$(m.ganProcEsp)})`,1));
   // 12. transportadoras y productos y ciudades (efectividad)
   const efBars=G=>hbars(G.filter(g=>g.list.length).map(g=>{const c=calc(g.list,{});const e=div(c.ent,c.desp);return{l:g.label||g.name,v:c.comp,c:CC.b,txt:fN(c.comp),sub:(e==null?'—':fP(e))+' efect.',tip:`<b>${esc(g.name)}</b><br>${c.comp} pedidos · ${c.ent} entregados · ${c.dev} devueltos · ${c.canc} cancelados<br>Efectividad ${fP(e)}`};}),fN);
-  out.push(card('Por transportadora',efBars(groupsFor('transp',L,[])),'Pedidos y % de efectividad'));
-  out.push(card('Por producto',efBars(groupsFor('producto',L,[])),'Pedidos y % de efectividad'));
-  out.push(card('Ciudades principales',efBars(groupsFor('ciudad',L,[])),'Pedidos y % de efectividad'));
-  out.push(card('Fin de semana vs entre semana',efBars(groupsFor('semana',L,[])),'Pedidos y % de efectividad'));
-  $('#view-graficas').innerHTML=head+`<div class="chartgrid">${out.join('')}</div>`;
+  X.dist.push(card('Por transportadora',efBars(groupsFor('transp',L,[])),'Pedidos y % de efectividad'));
+  X.dist.push(card('Por producto',efBars(groupsFor('producto',L,[])),'Pedidos y % de efectividad'));
+  X.dist.push(card('Ciudades principales',efBars(groupsFor('ciudad',L,[])),'Pedidos y % de efectividad'));
+  X.dist.push(card('Fin de semana vs entre semana',efBars(groupsFor('semana',L,[])),'Pedidos y % de efectividad'));
+  X.roas.push(X.roas.shift()); // inversión diaria (ancho completo) al final
+  return X;
 }
 
 // ───── Proyecciones ─────
@@ -689,7 +693,7 @@ async function setFlete(t,v){const f=Object.assign({},CFG.fletes||{});f[t]=+v;aw
 async function setProd(mp,v){const m=Object.assign({},CFG.prod_map||{});m[mp]=v;await saveCfg({prod_map:m});toast('Producto asignado');}
 async function refreshMeta(){toast('Actualizando Meta…');try{const r=await fetch('/api/refresh-meta',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const j=await r.json();if(!r.ok)throw new Error(j.detail||'error');await load();toast('Meta actualizado ('+j.filas+' filas)');}catch(e){toast(e.message);}}
 
-function go(v){VIEW=v;['metricas','graficas','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
+function go(v){VIEW=v;['metricas','proy','config'].forEach(x=>{$('#view-'+x).style.display=x===v?'':'none';$('#nav-'+x).classList.toggle('active',x===v);});render();}
 async function load(){
   $('#view-metricas').innerHTML='<div class="empty">Cargando datos…</div>';
   try{
