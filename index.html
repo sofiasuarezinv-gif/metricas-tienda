@@ -557,6 +557,17 @@ function daily(id,days,series,fmt,h){
       :{name:s.n,type:'line',smooth:.35,symbol:'circle',symbolSize:7,showSymbol:days.length<=31,data:s.v,connectNulls:false,lineStyle:{width:3,color:s.c,type:s.dash?'dashed':'solid'},itemStyle:{color:s.c,borderColor:'#101019',borderWidth:2},
         areaStyle:s.area?{color:grad(s.c)}:undefined,emphasis:{focus:'series'},markLine:s.avg?{symbol:'none',lineStyle:{color:s.c,type:'dotted',opacity:.7},label:{color:s.c,formatter:p=>'prom. '+fmt(p.value)},data:[{type:'average'}]}:undefined})},h||330);
 }
+// barras por día (solo los días que tienen dato), series lado a lado, con promedio punteado
+function dayBars(id,days,keep,series,fmt,h){
+  const ix=days.map((d,i)=>i).filter(keep),lab=ix.map(i=>DOW[new Date(days[i]+'T12:00:00').getDay()]+'\n'+days[i].slice(8)+'/'+days[i].slice(5,7));
+  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${lab[p[0].dataIndex].replace('\n',' ')}</b><br>`+p.map(x=>`${x.marker}${x.seriesName}: <b>${x.value==null?'—':fmt(x.value)}</b>`).join('<br>')},
+    legend:series.length>1?LEG:{show:false},grid:{left:10,right:16,top:series.length>1?44:20,bottom:ix.length>20?62:12,containLabel:true},
+    dataZoom:ix.length>20?[{type:'inside',start:Math.max(0,100-2000/ix.length),end:100},{type:'slider',height:16,bottom:6,start:Math.max(0,100-2000/ix.length),end:100,borderColor:'#2a2840',fillerColor:'rgba(124,92,255,.18)',handleStyle:{color:'#7c5cff'},textStyle:{color:'#948fb0'}}]:[],
+    xAxis:{type:'category',data:lab,...AX,axisLabel:{...AX.axisLabel,interval:'auto',hideOverlap:true,lineHeight:14}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:v=>fmt(v)}},
+    series:series.map((s,k)=>{const data=ix.map(i=>s.v[i]),vals=data.filter(v=>v!=null),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+      return{name:s.n,type:'bar',barMaxWidth:22,barGap:'18%',data,itemStyle:{color:s.c,borderRadius:[5,5,0,0]},emphasis:{focus:'series'},
+        markLine:avg!=null?{symbol:'none',silent:true,lineStyle:{color:s.c,type:'dashed',opacity:.8},label:{color:s.c,fontWeight:700,position:k?'insideStartTop':'insideEndTop',formatter:()=>'prom. '+fmt(avg)},data:[{yAxis:avg}]}:undefined};})},h||300);
+}
 // barras apiladas por grupo (entregados / en proceso / devueltos / cancelados)
 function estadoPorGrupo(id,G,h){
   const rows=G.filter(g=>g.list.length).map(g=>({n:g.label||g.name,m:calc(g.list,{})}));
@@ -585,12 +596,23 @@ function renderDetalle(m,L,M,SH){
   h+=sec('🛒 Ventas',
     box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Dropi sin preliminares','Preliminar recuperado','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.comp-m.shop.conv,m.shop.conv,m.comp],[CC.b,CC.a,CC.o,CC.y,CC.o],fN))+
     box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos'))+
-    box('Ventas día a día','Barras = pedidos de Dropi según de dónde vinieron · línea = compras que reporta Meta. Arrastra la barra de abajo para hacer zoom.',
-      daily('ch-ventas-dia',days,[{n:'Tienda',type:'bar',stack:'v',c:CC.a,v:per.map(p=>p.tienda)},{n:'Preliminar recuperado',type:'bar',stack:'v',c:CC.y,v:per.map(p=>p.prel)},{n:'Manual',type:'bar',stack:'v',c:CC.gray,v:per.map(p=>p.manual),top:1},{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)}],fN),1));
+    (()=>{ // solo días con ventas o pauta; por día: barra de Meta al lado de la barra de Dropi (apilada por origen)
+      const ix=days.map((d,i)=>i).filter(i=>per[i].dropi||per[i].vm);
+      const lab=ix.map(i=>{const d=days[i];return DOW[new Date(d+'T12:00:00').getDay()]+'\n'+d.slice(8)+'/'+d.slice(5,7);});
+      const col=(f)=>ix.map(i=>f(per[i])||0),tot=col(p=>p.dropi);
+      const seg=(n,c,f,top)=>({name:n,type:'bar',stack:'dropi',barMaxWidth:22,barGap:'18%',data:col(f),itemStyle:{color:c,borderRadius:top?[5,5,0,0]:0},emphasis:{focus:'series'},
+        label:top?{show:true,position:'top',color:'#ece9f5',fontWeight:800,fontSize:11,formatter:p=>tot[p.dataIndex]||''}:undefined});
+      return box('Ventas día a día',`Por cada día: <b style="color:${CC.b}">azul</b> = compras que reporta Meta · al lado, pedidos que llegaron a Dropi (tienda, preliminar recuperado o manual). Solo días con ventas o pauta.`,
+        ec('ch-ventas-dia',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${lab[p[0].dataIndex].replace('\n',' ')}</b><br>`+p.filter(x=>x.value).map(x=>`${x.marker}${x.seriesName}: <b>${x.value}</b>`).join('<br>')+`<br>Total Dropi: <b>${tot[p[0].dataIndex]}</b>`},
+          legend:LEG,grid:{left:40,right:16,top:44,bottom:ix.length>20?62:20,containLabel:true},
+          dataZoom:ix.length>20?[{type:'inside',start:Math.max(0,100-2000/ix.length),end:100},{type:'slider',height:16,bottom:6,start:Math.max(0,100-2000/ix.length),end:100,borderColor:'#2a2840',fillerColor:'rgba(124,92,255,.18)',handleStyle:{color:'#7c5cff'},textStyle:{color:'#948fb0'}}]:[],
+          xAxis:{type:'category',data:lab,...AX,axisLabel:{...AX.axisLabel,interval:0,lineHeight:14}},yAxis:{type:'value',minInterval:1,...AX},
+          series:[{name:'Ventas Meta',type:'bar',barMaxWidth:22,data:col(p=>p.vm),itemStyle:{color:CC.b,borderRadius:[5,5,0,0]},emphasis:{focus:'series'},label:{show:true,position:'top',color:'#9ec5f4',fontWeight:700,fontSize:11,formatter:p=>p.value||''}},
+            seg('Tienda',CC.a,p=>p.tienda),seg('Preliminar recuperado',CC.y,p=>p.prel),seg('Manual',CC.gray,p=>p.manual,1)]},340),1);})());
   // 🎯 CPA
   h+=sec('🎯 CPA',
-    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+' · '+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+' · '+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}))+
-    box('CPA día a día','Días sin ventas no tienen CPA',daily('ch-cpa-dia',days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?Math.round(p.inv/p.vm):null),area:1,avg:1},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?Math.round(p.inv/p.dropi):null),avg:1}],f$,300)));
+    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+'\n'+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+'\n'+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}))+
+    box('CPA día a día','Solo días con ventas · línea punteada = promedio',dayBars('ch-cpa-dia',days,i=>per[i].vm||per[i].dropi,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?Math.round(p.inv/p.vm):null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?Math.round(p.inv/p.dropi):null)}],f$,330),1));
   // 🧾 Preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
   h+=sec('🧾 Preliminares',
@@ -608,7 +630,8 @@ function renderDetalle(m,L,M,SH){
       return box('ROAS',`Debajo de cada ROAS: lo que se recibe en Dropi (venta − proveedor − flete) · inversión ${f$(m.inv)} · línea roja = 1,00x`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
         {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(rec[i])),extra:rv.map((r,i)=>'Recibido: <b>'+f$(rec[i])+'</b> ('+recTxt[i]+')<br>'+r[2]+': '+f$(r[1])+'<br>Inversión: '+f$(m.inv))}));})()+
     box('Inversión y ROAS día a día',`% recolectado: <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada)`,
-      daily('ch-inv-dia',days,[{n:'Inversión',type:'bar',c:CC.b,v:per.map(p=>p.inv),top:1}],f$,260)+daily('ch-roas-dia',days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null),area:1,avg:1}],fX,240),1));
+      '<div class="chartsub" style="margin:4px 0 0"><b>Inversión por día</b></div>'+dayBars('ch-inv-dia',days,i=>per[i].inv>0,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],fM,250)+
+      '<div class="chartsub" style="margin:14px 0 0"><b>ROAS Meta por día</b></div>'+dayBars('ch-roas-dia',days,i=>per[i].inv>0,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null)}],fX,250),1));
   // 💰 Rentabilidad
   const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDevIda=L.filter(isDev).reduce((s,o)=>s+flete(o),0);
   const costos=[{n:'Proveedores',v:m.cProv,c:CC.o},{n:'Fletes de entregas',v:fEnt,c:CC.v},{n:'Fletes de devoluciones',v:fDevIda+m.cDev,c:CC.ser},{n:'Publicidad Meta',v:m.inv,c:CC.b}];
