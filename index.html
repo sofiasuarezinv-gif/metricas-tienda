@@ -241,7 +241,9 @@ function rangeDates(){
   if(r==='custom')return{from:$('#r-from').value||'2000-01-01',to:$('#r-to').value||t};
   return{from:'2000-01-01',to:'2999-12-31'};
 }
-function setRange(type){RANGE={type};document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.r===type));render();}
+function setRange(type){RANGE={type};document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.r===type));
+  if(type!=='custom'){const r=rangeDates();$('#r-from').value=type==='total'?'':r.from;$('#r-to').value=type==='total'?'':r.to;} // fechas visibles = rango elegido
+  render();}
 const inRange=(f,r)=>f&&f>=r.from&&f<=r.to;
 
 // ───── productos: Meta (nombre de campaña) → producto de Dropi ─────
@@ -415,13 +417,20 @@ function renderMetricas(){
   const tot=calc(L,{inv:M.reduce((s,m)=>s+m.inversion,0),ventas:M.reduce((s,m)=>s+m.ventas,0),fac:M.reduce((s,m)=>s+m.facturacion,0)},SH);
   let body='';
   if(DIM==='general'){
+    // métricas principales (las demás quedan en "Ver todas las métricas")
+    const KEY=[['Inversión','$',m=>m.inv,'Gasto total en Meta'],['Ventas Meta','n',m=>m.ventasMeta,'Compras atribuidas por Meta'],['CPA','$',m=>div(m.inv,m.ventasMeta),'Inversión ÷ ventas Meta'],
+      ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
+      ['Entregados','n',m=>m.ent,'Estado entregado'],['% Efectividad','%',m=>div(m.ent,m.desp),'Entregados ÷ despachados'],['Cancelados','n',m=>m.canc,'Estado cancelado'],['% Cancelación','%',m=>div(m.canc,m.comp),'Cancelados ÷ completos'],
+      ['Devoluciones','n',m=>m.dev,'Estado devolución'],['% Devolución','%',m=>div(m.dev,m.desp),'Devueltos ÷ despachados'],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven']];
+    body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div><div class="f">${d}</div></div>`;}).join('')+'</div>';
+    body+='<details class="acc" style="margin-top:28px"><summary>Ver todas las métricas</summary><div class="acc-body">';
     let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
     METRICS.forEach(d=>{
       if(d.s){flush();body+=`<div class="sec-h">${d.s}${d.est&&tot.est?'<span class="esttag">fletes estimados donde Dropi no los da</span>':''}</div>`;sec='<div class="cards">';return;}
       if(d.p){sec+=`<div class="stat pend"><div class="k">${d.l}<span class="pendtag">Shopify</span></div><div class="v">pendiente</div><div class="f">${d.d||''}</div></div>`;return;}
       const v=d.f(tot);const c=d.sign?(v<0?'red':'grn'):'';
       sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${d.d?`<div class="f">${d.d}</div>`:''}</div>`;
-    });flush();
+    });flush();body+='</div></details>';
   }else{
     const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
     const G=groupsFor(DIM,L,M).map(g=>({...g,m:calc(g.list,g.mt,shKey?{orders:SH.orders.filter(o=>shKey(o.fecha)===g.name),drafts:SH.drafts.filter(d=>shKey(d.fecha)===g.name)}:null)}));
@@ -543,7 +552,7 @@ async function load(){
     const j=await (await fetch('/api/all')).json();
     ORDERS=(j.orders||[]).filter(o=>o&&o.id);SHOP=j.shopify||{orders:[],drafts:[]};META=j.meta||[];CFG=j.config||{};SYNC=j.sync||{};META_LIVE=!!j.metaLive;_pmap=null;
   }catch(e){$('#view-metricas').innerHTML='<div class="empty">No se pudieron cargar los datos. Si el servidor estaba dormido, espera un minuto y recarga.</div>';return;}
-  render();
+  setRange(RANGE.type);
 }
 load();
 </script>
