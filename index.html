@@ -177,6 +177,8 @@
   .cpa-row.flow{flex-wrap:nowrap} .cpa-row.flow .cpa-card{min-width:0;padding:12px 13px} .cpa-row.flow .cpa-v{font-size:23px} .cpa-row.flow .cpa-arrow{min-width:64px;padding:0 4px} .cpa-row.flow .cpa-m{display:none} .cpa-row.flow .cpa-v{font-size:25px}
   @media(max-width:1000px){.cpa-row.flow{flex-wrap:wrap}}
   @media(max-width:900px){.cpa-arrow{min-width:100%;flex-direction:row;gap:6px;padding:6px 0}.cpa-card{min-width:100%}}
+  /* solo datos: sin textos explicativos */
+  .stat .f,.chartsub,.pl-d,.pl-ks,.esttag,.cpa-arrow small{display:none!important}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -487,7 +489,7 @@ function renderMetricas(){
   const r=rangeDates();
   const L=ORDERS.filter(o=>inRange(o.fecha,r)),M=META.filter(m=>inRange(m.fecha,r));
   const dimsH=`<div class="dims">${DIMS.map(([k,n])=>`<button class="${DIM===k?'active':''}" onclick="DIM='${k}';renderMetricas()">${n}</button>`).join('')}</div>`;
-  const head=`<h2 class="title">📊 Métricas</h2><p class="muted">${r.from==='2000-01-01'?'Todo el histórico':r.from+' → '+r.to} · datos directos de Dropi y Meta (sin subir reportes).</p>`;
+  const head=`<h2 class="title">📊 Métricas</h2><p class="muted">${r.from==='2000-01-01'?'Todo el histórico':r.from+' → '+r.to}</p>`;
   if(!L.length&&!M.length){$('#view-metricas').innerHTML=head+dimsH+'<div class="empty">No hay pedidos ni inversión en este rango.</div>';return;}
   const SH={orders:SHOP.orders.filter(o=>inRange(o.fecha,r)),drafts:SHOP.drafts.filter(d=>inRange(d.fecha,r))};
   const tot=calc(L,{inv:M.reduce((s,m)=>s+m.inversion,0),ventas:M.reduce((s,m)=>s+m.ventas,0),fac:M.reduce((s,m)=>s+m.facturacion,0)},SH);
@@ -498,8 +500,8 @@ function renderMetricas(){
       ['ROAS Meta','x',m=>div(m.factMeta,m.inv),'Facturación Meta ÷ inversión'],['Dinero ingresado a Dropi','$',m=>m.ingresado,m=>`${m.ent} entregados (venta − proveedor − flete): ${f$(m.recEnt)} · ${m.dev} devoluciones (flete ida y vuelta): −${f$(Math.abs(m.recDev))}`],['Ganancia neta','$',m=>m.gan,'Dinero ingresado a Dropi − inversión',1],['% Utilidad','%',m=>div(m.gan,m.ingresado),'Ganancia neta ÷ dinero ingresado a Dropi',1],
       ['Entregados','n',m=>m.ent,'Efectividad = entregados ÷ despachados',0,['efectividad',m=>div(m.ent,m.desp)]],['Cancelados','n',m=>m.canc,'Cancelación = cancelados ÷ completos',0,['cancelación',m=>div(m.canc,m.comp)]],
       ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
-      ['Ganancia en procesamiento','$',m=>m.ganProc,m=>`Si se entregan todos los en camino (venta − proveedor − flete). Esperada con tu efectividad de ${fP(m.efC)}: ${f$(m.ganProcEsp)}`,1]];
-    body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${fP(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
+      ['Ganancia en procesamiento','$',m=>m.ganProc,m=>'',1,['esperada',m=>m.ganProcEsp,f$]]];
+    body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${(pc[2]||fP)(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
     body+=renderDetalle(tot,L,M,SH);
   }else{
     const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
