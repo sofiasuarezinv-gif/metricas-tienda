@@ -145,6 +145,21 @@
   .flatpickr-day.inRange{background:rgba(124,92,255,.22)!important;border-color:transparent!important;box-shadow:-5px 0 0 rgba(124,92,255,.22),5px 0 0 rgba(124,92,255,.22)!important}
   .flatpickr-months .flatpickr-month,.flatpickr-current-month .flatpickr-monthDropdown-months,span.flatpickr-weekday{background:transparent!important;color:var(--ink)!important}
   .ec{width:100%}
+  /* estado de resultados */
+  .pl-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:6px 0 18px}
+  .pl-k{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .pl-kl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em} .pl-kv{font-size:22px;font-weight:800;margin:4px 0 2px;font-variant-numeric:tabular-nums} .pl-ks{font-size:11px;color:var(--sub)}
+  .pl,.pl-h{display:grid;grid-template-columns:minmax(200px,1.3fr) minmax(120px,2fr) 130px 110px 130px;gap:14px;align-items:center}
+  .pl-h{font-size:10.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;padding:0 12px 8px;text-align:right}
+  .pl{padding:11px 12px;border-radius:10px;transition:background .15s} .pl:hover{background:rgba(255,255,255,.035)}
+  .pl.sub,.pl.res{border-top:1px solid var(--line);margin-top:4px;padding-top:14px} .pl.res{background:rgba(255,255,255,.03)}
+  .pl-l{display:flex;gap:10px;align-items:center} .pl-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  .pl-n{font-weight:700;font-size:13.5px} .pl.sub .pl-n,.pl.res .pl-n{font-weight:800;font-size:14.5px} .pl-d{font-size:11px;color:var(--sub);margin-top:2px}
+  .pl-bar{height:14px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden} .pl-bar div{height:100%;border-radius:4px;animation:plg .9s cubic-bezier(.2,.8,.2,1)}
+  @keyframes plg{from{width:0!important}}
+  .pl-v,.pl-p,.pl-u{text-align:right;font-variant-numeric:tabular-nums;font-weight:700} .pl-v{font-size:14px} .pl.res .pl-v{font-size:17px;font-weight:800} .pl-v.neg{color:var(--red)} .pl.cost .pl-v{color:#d4cfe6}
+  .pl-p,.pl-u{color:var(--sub);font-size:12.5px}
+  @media(max-width:900px){.pl,.pl-h{grid-template-columns:1fr 90px 70px}.pl-bar,.pl-u,.pl-h div:nth-child(2),.pl-h div:nth-child(5){display:none}}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -494,6 +509,8 @@ function renderMetricas(){
 const CC={b:'#3987e5',o:'#d95926',a:'#199e70',y:'#c98500',v:'#9085e9',good:'#0ca30c',warn:'#fab219',ser:'#ec835a',crit:'#d03b3b',gray:'#5b5870'};
 const fM=v=>{if(v==null||!isFinite(v))return'—';const a=Math.abs(v),s=v<0?'-$':'$';return a>=1e6?s+(a/1e6).toLocaleString('es-CO',{maximumFractionDigits:2})+'M':a>=1e3?s+Math.round(a/1e3)+'k':s+Math.round(a);};
 let EC_Q=[],EC_I=[];
+const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+document.addEventListener('mousemove',e=>{const T=document.getElementById('tip');if(!T)return;const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){T.style.opacity=0;return;}T.innerHTML=t.getAttribute('data-tip');T.style.opacity=1;T.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-T.offsetWidth-8))+'px';T.style.top=(e.clientY+16)+'px';});
 function ec(id,opt,h){EC_Q.push([id,opt]);return`<div id="${id}" class="ec" style="height:${h||300}px"></div>`;}
 function initCharts(){
   EC_I.forEach(c=>{try{c.dispose()}catch(e){}});EC_I=[];
@@ -653,27 +670,34 @@ function renderDetalle(m,L,M,SH){
     return box('Por cada $1 que inviertes en Meta',`Así se encoge el retorno desde lo que reporta Meta hasta lo que de verdad te entra · el % rojo es lo que se pierde en cada paso · % recolectado ${fP(rec)}`,c1,1)+
       box('¿Te alcanza el ROAS?',`ROAS mínimo para no perder plata (cuando lo que entra a Dropi = inversión) vs el que tienes · de cada $1 entregado te quedan ${k==null?'—':'$'+k.toLocaleString('es-CO',{maximumFractionDigits:2})}`,c2,1);
   })());
-  // 💰 Rentabilidad
-  const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDevIda=L.filter(isDev).reduce((s,o)=>s+flete(o),0);
-  const costos=[{n:'Proveedores',v:m.cProv,c:CC.o},{n:'Fletes de entregas',v:fEnt,c:CC.v},{n:'Fletes de devoluciones',v:fDevIda+m.cDev,c:CC.ser},{n:'Publicidad Meta',v:m.inv,c:CC.b}];
-  const ticket=div(m.factEnt,m.ent)||0,unit=[['Proveedor',div(m.cProv,m.ent),CC.o],['Flete',div(fEnt+fDevIda,m.ent),CC.v],['Devoluciones',div(m.cDev,m.ent),CC.ser],['Publicidad',div(m.inv,m.ent),CC.b],[m.gan<0?'Pérdida':'Ganancia',div(m.gan,m.ent),m.gan<0?CC.crit:CC.good]];
-  h+=sec('💰 Rentabilidad'+(m.est?'<span class="esttag">algunos fletes estimados</span>':''),
-    box('Ingresos vs costos',`Pedidos entregados · ${m.gan<0?'pérdida':'ganancia'} neta <b style="color:${m.gan<0?'var(--red)':'var(--green)'}">${f$(m.gan)}</b> · margen ${fP(div(m.gan,m.ingresado))}`,
-      ec('ch-pnl',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${p[0].name}</b><br>`+p.filter(x=>x.value).map(x=>`${x.marker}${x.seriesName}: <b>${f$(x.value)}</b>`).join('<br>')+(p[0].dataIndex===1?`<br>Total costos: <b>${f$(m.costos)}</b>`:'')},
-        legend:{show:false},grid:{left:60,right:200,top:34,bottom:30},
-        xAxis:{type:'category',data:['Ingresos','Costos'],...AX,axisLabel:{...AX.axisLabel,fontSize:13,fontWeight:700,color:'#ece9f5'}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
-        // cada segmento dice qué es y cuánto (adentro si cabe, al lado si es pequeño); arriba el total de cada barra
-        series:[{name:'Facturación entregada',type:'bar',stack:'p',barWidth:'50%',data:[m.factEnt,0],itemStyle:{color:CC.good,borderRadius:[8,8,0,0]},
-            label:{show:true,position:'inside',color:'#fff',fontWeight:800,fontSize:13,lineHeight:18,formatter:p=>p.value?['Facturación','entregada',fM(p.value)].join('\n'):''}}]
-          .concat(costos.map((c,i)=>{const big=c.v/(m.costos||1)>=.12;return{name:c.n,type:'bar',stack:'p',data:[0,c.v],itemStyle:{color:c.c,borderRadius:i===costos.length-1?[8,8,0,0]:0},emphasis:{focus:'series'},
-            label:{show:c.v>0,position:'right',distance:10,color:'#ece9f5',fontWeight:700,fontSize:12,formatter:p=>p.dataIndex!==1?'':`{d|●} ${c.n} · ${fM(c.v)}`,rich:{d:{color:c.c,fontSize:14}}}};}))
-          .concat([{name:'_total',type:'bar',stack:'p',data:[0,0],tooltip:{show:false},label:{show:true,position:'top',color:'#ece9f5',fontWeight:800,fontSize:13,formatter:p=>p.dataIndex?'Costos '+f$(m.costos):'Ingresos '+f$(m.factEnt)}}])},360))+
-    box('¿En qué se va cada peso?','Reparto de la facturación entregada',donut('ch-reparto',costos.map(c=>({name:c.n,value:Math.round(c.v),c:c.c})).concat(m.gan>0?[{name:'Ganancia',value:Math.round(m.gan),c:CC.good}]:[]),fP(div(m.gan,m.factEnt)),m.gan<0?'pérdida sobre ventas':'ganancia sobre ventas',340,1))+
-    box('Así se reparte un pedido entregado promedio',`Precio de venta promedio <b>${f$(ticket)}</b> · ingreso a Dropi por entregado ${f$(div(m.ingresado,m.ent))}`,
-      ec('ch-unit',{tooltip:{trigger:'item',formatter:p=>`<b>${p.seriesName}</b><br>${f$(p.value)} por pedido · ${fP(div(Math.abs(p.value),ticket))} del precio`},legend:{...LEG,top:'bottom'},
-        grid:{left:10,right:20,top:10,bottom:50,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},yAxis:{type:'category',data:['Pedido promedio'],...AX,axisLabel:{show:false}},
-        series:unit.map(([n,v,c],i)=>({name:n,type:'bar',stack:'u',barWidth:56,data:[Math.round(v||0)],itemStyle:{color:c,borderRadius:i===unit.length-1?[0,8,8,0]:i===0?[8,0,0,8]:0},emphasis:{focus:'series'},
-          label:{show:Math.abs(v||0)/ticket>.07,color:'#fff',fontWeight:800,formatter:p=>`${n}\n${fM(p.value)}`}}))},200),1));
+  // 💰 Rentabilidad: estado de resultados (de lo facturado a la ganancia), en total y por pedido entregado
+  {
+    const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDev=L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0);
+    const F=m.factEnt||0,n=m.ent||0,proy=m.gan+m.ganProcEsp;
+    const rows=[
+      {t:'ing',l:'Facturación entregada',d:`${n} pedidos entregados`,v:F,c:CC.good},
+      {t:'cost',l:'Proveedores',d:'Precio proveedor de lo entregado',v:-m.cProv,c:CC.o},
+      {t:'cost',l:'Fletes de entregas',d:'Envío de los pedidos entregados',v:-fEnt,c:CC.v},
+      {t:'cost',l:'Fletes de devoluciones',d:`${m.dev} devoluciones: flete de ida y de vuelta`,v:-fDev,c:CC.ser},
+      {t:'sub',l:'Dinero ingresado a Dropi',d:'Lo que de verdad entra a tu billetera',v:m.ingresado,c:CC.b},
+      {t:'cost',l:'Publicidad Meta',d:'Inversión del período',v:-m.inv,c:'#5b8def'},
+      {t:'res',l:m.gan<0?'Pérdida neta':'Ganancia neta',d:'Dinero ingresado − publicidad',v:m.gan,c:m.gan<0?CC.crit:CC.good}];
+    const w=v=>Math.min(100,Math.abs(v)/(F||1)*100);
+    const pl=rows.map(r=>`<div class="pl ${r.t}" data-tip="<b>${esc(r.l)}</b><br>${f$(r.v)} · ${fP(div(r.v,F))} de lo facturado<br>${n?f$(r.v/n)+' por pedido entregado':''}">
+        <div class="pl-l"><span class="pl-dot" style="background:${r.c}"></span><div><div class="pl-n">${r.t==='cost'?'− ':r.t==='sub'||r.t==='res'?'= ':''}${r.l}</div><div class="pl-d">${r.d}</div></div></div>
+        <div class="pl-bar"><div style="width:${w(r.v)}%;background:${r.c}"></div></div>
+        <div class="pl-v ${r.v<0&&r.t!=='cost'?'neg':''}">${f$(r.v)}</div>
+        <div class="pl-p">${fP(div(r.v,F))}</div>
+        <div class="pl-u">${n?f$(r.v/n):'—'}</div></div>`).join('');
+    const kpi=(l,v,s,c)=>`<div class="pl-k"><div class="pl-kl">${l}</div><div class="pl-kv" style="color:${c}">${v}</div><div class="pl-ks">${s}</div></div>`;
+    h+=sec('💰 Rentabilidad'+(m.est?'<span class="esttag">algunos fletes estimados</span>':''),
+      box('Estado de resultados',`De lo que se entregó hasta lo que te queda · pasa el mouse por cada línea`,
+        `<div class="pl-kpis">${kpi(m.gan<0?'Pérdida neta hoy':'Ganancia neta hoy',f$(m.gan),'con lo que ya se entregó',m.gan<0?'#f87171':'#34d399')}
+          ${kpi('% Margen neto',fP(div(m.gan,m.ingresado)),'ganancia ÷ dinero ingresado',m.gan<0?'#f87171':'#34d399')}
+          ${kpi('En camino (esperada)',f$(m.ganProcEsp),`${m.proc} pedidos · efectividad ${fP(m.efC)}`,'#9ec5f4')}
+          ${kpi('Proyectada al cerrar',f$(proy),'hoy + lo que viene en camino',proy<0?'#f87171':'#34d399')}</div>
+        <div class="pl-h"><div></div><div></div><div>Total</div><div>% de lo facturado</div><div>Por pedido entregado</div></div>${pl}`,1));
+  }
   // 🧺 Unidades · 🏢 Oficina · 💳 Anticipados
   const u1=L.filter(o=>units(o)===1).length,u4=L.filter(o=>units(o)>=4).length;
   h+=sec('🧺 Unidades · 🏢 Oficina · 💳 Pagos',
