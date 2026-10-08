@@ -11,7 +11,7 @@ const OMIT = ['sofia prueba', 'sofia calder', 'prueba', 'jhon fredy marin bedoya
 const rd = (p, d) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return d; } };
 const wr = (p, o) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify(o)); };
 
-const [, , dropiFile, metaFile] = process.argv;
+const [, , dropiFile, metaFile, fletesFile] = process.argv; // fletesFile opcional: {id:{flete}} cotizado en Dropi (quote_shipping)
 const out = {};
 
 if (dropiFile) {
@@ -61,6 +61,7 @@ if (dropiFile) {
     (stores[m] = stores[m] || {})[id] = o; where[id] = m;
     prev ? updated++ : added++;
   }
+  if (fletesFile) { const FL = rd(fletesFile, {}); let n = 0; for (const mm in stores) for (const id in stores[mm]) { const f = FL[id]; if (f && f.flete > 0) { stores[mm][id].flete_cot = Math.round(f.flete); n++; } } out.fletes = n; }
   for (const m in stores) wr(path.join(ordDir, m + '.json'), stores[m]);
   out.dropi = { recibidos: src.length, added, updated, skipped };
 }
