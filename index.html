@@ -659,7 +659,14 @@ function renderDetalle(m,L,M,SH){
         <div class="cpa-m"><span>Máx. sin perder <b>${f$(s.max)}</b></span><span style="color:${col};font-weight:800">${s.r==null?'':ok?'✓ '+fP(1-s.r)+' de margen':'✗ te pasas '+fP(s.r-1)}</span></div>
         ${s.ent&&m.proc?`<div class="cpa-n">Al cerrar los ${m.proc} en camino: ~<b>${f$(div(m.inv,expEnt))}</b></div>`:''}
       </div>`;};
-    h+=sec('🎯 CPA',box('¿Cuánto te cuesta en publicidad cada pedido?',`Cada etapa se encarece porque se pierden pedidos (cancelados, devueltos, en camino) · la rayita blanca = el máximo que aguantas sin perder`,`<div class="cpa-row">${st.map(card).join('')}</div>`,1));
+    h+=sec('🎯 CPA',box('¿Cuánto te cuesta en publicidad cada pedido?',`Cada etapa se encarece porque se pierden pedidos (cancelados, devueltos, en camino) · la rayita blanca = el máximo que aguantas sin perder`,`<div class="cpa-row">${st.map(card).join('')}</div>`,1)+
+      box('CPA por etapa vs máximo sin perder',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,
+        ec('ch-cpa',{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:v=>f$(v)},legend:LEG,grid:{left:10,right:16,top:44,bottom:10,containLabel:true},
+          xAxis:{type:'category',data:st.map(s=>s.l),...AX,axisLabel:{...AX.axisLabel,color:'#ece9f5',fontWeight:700,fontSize:12}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
+          series:[{name:'CPA',type:'bar',barWidth:34,barGap:'25%',data:st.map(s=>({value:Math.round(s.v||0),itemStyle:{color:s.c,borderRadius:[6,6,0,0]}})),
+              label:{show:true,position:'top',color:'#ece9f5',fontWeight:800,formatter:p=>{const s=st[p.dataIndex];return f$(p.value)+(s.pc!=null?'\n'+fP(s.pc):'');},lineHeight:16}},
+            {name:'Máximo sin perder',type:'bar',barWidth:34,data:st.map(s=>Math.round(s.max||0)),itemStyle:{color:'rgba(255,255,255,.10)',borderColor:'rgba(255,255,255,.45)',borderType:'dashed',borderWidth:1,borderRadius:[6,6,0,0]},
+              label:{show:true,position:'top',color:'#948fb0',fontWeight:700,formatter:p=>f$(p.value)}}]},320),1));
   }
   // 🧾 Preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
