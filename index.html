@@ -523,7 +523,7 @@ function bars(id,cats,vals,colors,fmt,opts={}){
   const hor=opts.horizontal;
   const cat={type:'category',data:cats,...AX,axisLabel:{...AX.axisLabel,interval:0,width:hor?140:90,overflow:'break'}},val={type:'value',...AX,axisLabel:{...AX.axisLabel,show:!hor,formatter:v=>fmt(v)}};
   return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${p[0].name}</b><br>${fmt(p[0].value)}${opts.extra?'<br>'+opts.extra[p[0].dataIndex]:''}`},
-    grid:{left:hor?150:50,right:hor?70:16,top:opts.markLine?28:20,bottom:hor?10:50,containLabel:!hor},
+    grid:{left:hor?150:50,right:hor?70:(opts.markLine?44:16),top:opts.labels&&!hor?40:opts.markLine?28:20,bottom:hor?10:50,containLabel:!hor},
     xAxis:hor?val:cat,yAxis:hor?{...cat,inverse:true}:val,
     series:[{type:'bar',barMaxWidth:hor?22:46,data:vals.map((v,i)=>({value:v,itemStyle:{color:colors[i%colors.length],borderRadius:hor?[0,6,6,0]:[6,6,0,0]}})),
       label:{show:true,position:hor?'right':'top',color:'#ece9f5',fontWeight:700,formatter:p=>opts.labels?opts.labels[p.dataIndex]:fmt(p.value)},
@@ -599,7 +599,10 @@ function renderDetalle(m,L,M,SH){
   // 💵 ROAS
   h+=sec('💵 ROAS',
     box('Inversión vs facturación','',bars('ch-fact',['Inversión','Facturación Meta','Fact. incl. preliminares','Facturación despachada','Facturación entregada','Dinero ingresado a Dropi'],[m.inv,m.factMeta,m.factMeta+m.shop.valPrelim,m.factDesp,m.factEnt,m.ingresado],[CC.crit,CC.b,CC.b,CC.o,CC.good,CC.y],fM,{horizontal:1,h:300}))+
-    box('ROAS','Línea roja = 1,00x (por debajo se pierde plata)',bars('ch-roas',['ROAS Meta','ROAS entregado','ROAS recolectado','ROAS incl. preliminares','ROAS despachado'],[div(m.factMeta,m.inv),div(m.factEnt,m.inv),div(m.ingresado,m.inv),div(m.factMeta+m.shop.valPrelim,m.inv),div(m.factDesp,m.inv)].map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,{markLine:[1,'1,00x']}))+
+    (()=>{const rv=[['ROAS Meta',m.factMeta,'Facturación Meta'],['ROAS entregado',m.factEnt,'Facturación entregada'],['ROAS recolectado',m.ingresado,'Dinero ingresado a Dropi'],['ROAS incl. preliminares',m.factMeta+m.shop.valPrelim,'Fact. Meta + preliminares'],['ROAS despachado',m.factDesp,'Facturación despachada']];
+      const rx=rv.map(r=>div(r[1],m.inv));
+      return box('ROAS',`Cada barra = valor ÷ inversión de ${f$(m.inv)} · línea roja = 1,00x (por debajo se pierde plata)`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
+        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(r[1])),extra:rv.map(r=>r[2]+': <b>'+f$(r[1])+'</b><br>Inversión: '+f$(m.inv))}));})()+
     box('Inversión y ROAS día a día',`% recolectado: <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada)`,
       daily('ch-inv-dia',days,[{n:'Inversión',type:'bar',c:CC.b,v:per.map(p=>p.inv),top:1}],f$,260)+daily('ch-roas-dia',days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null),area:1,avg:1}],fX,240),1));
   // 💰 Rentabilidad
