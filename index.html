@@ -645,7 +645,8 @@ function renderDetalle(m,L,M,SH){
     (()=>{ // estado actual de cada pedido, una barra por grupo (cada valor al final de su barra, sin encimarse)
       const e=o=>o.estado||'';
       const G=[['Entregados',o=>isEnt(o),CC.good],['Devoluciones',o=>isDev(o),CC.ser],['Cancelados',o=>isCanc(o),CC.crit],
-        ['En oficina',o=>/OFICINA/.test(e(o)),CC.y],['En procesamiento',o=>/PROCESAMIENTO|PENDIENTE|GUIA|RECOGIDO|PREPARAD/.test(e(o)),CC.v],
+        ['En oficina',o=>/OFICINA/.test(e(o)),CC.y],['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],
+        ['En procesamiento',o=>/PROCESAMIENTO|RECOGIDO|PREPARAD/.test(e(o)),CC.v],
         ['En reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b]];
       const base=G.slice(),used=o=>base.some(([,f])=>f(o)),rest=L.filter(o=>!used(o)).length;
       if(rest)G.push(['En tránsito',o=>!used(o),CC.a]);
