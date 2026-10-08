@@ -613,11 +613,8 @@ function renderDetalle(m,L,M,SH){
       const net=o=>(o.venta||0)-(o.proveedor||0)-flete(o),sumN=A=>A.reduce((s,o)=>s+net(o),0),vivos=L.filter(o=>!isCanc(o));
       const rec=[sumN(vivos.filter(o=>o.origen==='shopify')),sumN(L.filter(isEnt)),m.ingresado,sumN(vivos.filter(o=>o.origen==='shopify'||o.origen==='preliminar')),sumN(vivos)];
       const recTxt=['de pedidos de la tienda, si se entregan','ya entró de los entregados','ya entró (entregados − devoluciones)','de tienda + preliminares, si se entregan','de todos los despachados, si se entregan'];
-      return box('ROAS',`Debajo de cada ROAS: lo que se recibe en Dropi (venta − proveedor − flete) · inversión ${f$(m.inv)} · línea roja = 1,00x`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
-        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(rec[i])),extra:rv.map((r,i)=>'Recibido: <b>'+f$(rec[i])+'</b> ('+recTxt[i]+')<br>'+r[2]+': '+f$(r[1])+'<br>Inversión: '+f$(m.inv))}));})()+
-    box('Inversión y ROAS día a día',`% recolectado: <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada)`,
-      '<div class="chartsub" style="margin:4px 0 0"><b>Inversión por día</b></div>'+dayBars('ch-inv-dia',days,i=>per[i].inv>0,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],fM,250)+
-      '<div class="chartsub" style="margin:14px 0 0"><b>ROAS Meta por día</b></div>'+dayBars('ch-roas-dia',days,i=>per[i].inv>0,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null)}],fX,250),1));
+      return box('ROAS',`% recolectado <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada) · debajo de cada ROAS: lo que se recibe en Dropi (venta − proveedor − flete) · inversión ${f$(m.inv)} · línea roja = 1,00x`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
+        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(rec[i])),extra:rv.map((r,i)=>'Recibido: <b>'+f$(rec[i])+'</b> ('+recTxt[i]+')<br>'+r[2]+': '+f$(r[1])+'<br>Inversión: '+f$(m.inv))}));})());
   // 💰 Rentabilidad
   const fEnt=L.filter(isEnt).reduce((s,o)=>s+flete(o),0),fDevIda=L.filter(isDev).reduce((s,o)=>s+flete(o),0);
   const costos=[{n:'Proveedores',v:m.cProv,c:CC.o},{n:'Fletes de entregas',v:fEnt,c:CC.v},{n:'Fletes de devoluciones',v:fDevIda+m.cDev,c:CC.ser},{n:'Publicidad Meta',v:m.inv,c:CC.b}];
