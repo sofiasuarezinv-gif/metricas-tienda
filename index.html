@@ -644,7 +644,7 @@ function renderDetalle(m,L,M,SH){
     box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}]))+
     (()=>{ // estado actual de cada pedido, una barra por grupo (cada valor al final de su barra, sin encimarse)
       const e=o=>o.estado||'';
-      const ot=[['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Cancelado',o=>isCanc(o),CC.crit],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],['Devolución',o=>isDev(o),CC.ser],
+      const ot=[['Pendiente',o=>/PENDIENTE/.test(e(o)),'#94a3b8'],['Cancelado',o=>isCanc(o),CC.ser],['Devolución',o=>isDev(o),CC.crit],['Guía generada',o=>/GUIA/.test(e(o)),'#f472b6'],
         ['Procesamiento',o=>/PROCESAMIENTO|RECOGIDO|PREPARAD/.test(e(o)),CC.v],['Oficina',o=>/OFICINA/.test(e(o)),CC.y],['Reparto',o=>/REPARTO|INTENTO DE ENTREGA/.test(e(o)),CC.b],['Entregado',o=>isEnt(o),CC.good]];
       const used=o=>ot.some(([,f])=>f(o)); // tránsito = cualquier otro estado (bodegas, terminal, despachada, novedad…)
       const G=[...ot.slice(0,5),['Tránsito',o=>!used(o),CC.a],...ot.slice(5)];
