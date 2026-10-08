@@ -601,8 +601,12 @@ function renderDetalle(m,L,M,SH){
     box('Inversión vs facturación','',bars('ch-fact',['Inversión','Facturación Meta','Fact. incl. preliminares','Facturación despachada','Facturación entregada','Dinero ingresado a Dropi'],[m.inv,m.factMeta,m.factMeta+m.shop.valPrelim,m.factDesp,m.factEnt,m.ingresado],[CC.crit,CC.b,CC.b,CC.o,CC.good,CC.y],fM,{horizontal:1,h:300}))+
     (()=>{const rv=[['ROAS Meta',m.factMeta,'Facturación Meta'],['ROAS entregado',m.factEnt,'Facturación entregada'],['ROAS recolectado',m.ingresado,'Dinero ingresado a Dropi'],['ROAS incl. preliminares',m.factMeta+m.shop.valPrelim,'Fact. Meta + preliminares'],['ROAS despachado',m.factDesp,'Facturación despachada']];
       const rx=rv.map(r=>div(r[1],m.inv));
-      return box('ROAS',`Cada barra = valor ÷ inversión de ${f$(m.inv)} · línea roja = 1,00x (por debajo se pierde plata)`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
-        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(r[1])),extra:rv.map(r=>r[2]+': <b>'+f$(r[1])+'</b><br>Inversión: '+f$(m.inv))}));})()+
+      // lo recibido en Dropi (venta − proveedor − flete) de los pedidos que cuenta cada ROAS; entregado y recolectado ya entraron, los demás si se entregan
+      const net=o=>(o.venta||0)-(o.proveedor||0)-flete(o),sumN=A=>A.reduce((s,o)=>s+net(o),0),vivos=L.filter(o=>!isCanc(o));
+      const rec=[sumN(vivos.filter(o=>o.origen==='shopify')),sumN(L.filter(isEnt)),m.ingresado,sumN(vivos.filter(o=>o.origen==='shopify'||o.origen==='preliminar')),sumN(vivos)];
+      const recTxt=['de pedidos de la tienda, si se entregan','ya entró de los entregados','ya entró (entregados − devoluciones)','de tienda + preliminares, si se entregan','de todos los despachados, si se entregan'];
+      return box('ROAS',`Debajo de cada ROAS: lo que se recibe en Dropi (venta − proveedor − flete) · inversión ${f$(m.inv)} · línea roja = 1,00x`,bars('ch-roas',['Meta','Entregado','Recolectado','Con preliminares','Despachado'],rx.map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,
+        {markLine:[1,'1,00x'],h:330,labels:rv.map((r,i)=>fX(rx[i])+'\n'+fM(rec[i])),extra:rv.map((r,i)=>'Recibido: <b>'+f$(rec[i])+'</b> ('+recTxt[i]+')<br>'+r[2]+': '+f$(r[1])+'<br>Inversión: '+f$(m.inv))}));})()+
     box('Inversión y ROAS día a día',`% recolectado: <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada)`,
       daily('ch-inv-dia',days,[{n:'Inversión',type:'bar',c:CC.b,v:per.map(p=>p.inv),top:1}],f$,260)+daily('ch-roas-dia',days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null),area:1,avg:1}],fX,240),1));
   // 💰 Rentabilidad
