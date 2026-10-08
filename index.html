@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Métricas de Tienda</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -129,6 +134,17 @@
   .modal-x{position:absolute;top:14px;right:14px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:15px}
 </style>
 <style>
+  /* calendario de rango */
+  .drange{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(124,92,255,.16),rgba(56,189,248,.08));border:1px solid rgba(124,92,255,.45);border-radius:11px;padding:0 12px;height:38px;cursor:pointer;transition:.15s}
+  .drange:hover{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,92,255,.15)}
+  .drange .ic{font-size:15px} .drange .car{color:var(--purple);font-size:11px}
+  .drange input{background:transparent;border:0;outline:0;color:var(--ink);font:700 13px Inter;width:200px;cursor:pointer}
+  .drange input::placeholder{color:var(--sub)}
+  .flatpickr-calendar{background:#14141f!important;border:1px solid var(--line)!important;box-shadow:0 20px 50px rgba(0,0,0,.6)!important;border-radius:14px!important}
+  .flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange{background:#7c5cff!important;border-color:#7c5cff!important}
+  .flatpickr-day.inRange{background:rgba(124,92,255,.22)!important;border-color:transparent!important;box-shadow:-5px 0 0 rgba(124,92,255,.22),5px 0 0 rgba(124,92,255,.22)!important}
+  .flatpickr-months .flatpickr-month,.flatpickr-current-month .flatpickr-monthDropdown-months,span.flatpickr-weekday{background:transparent!important;color:var(--ink)!important}
+  .ec{width:100%}
   /* gráficas */
   .chartcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0;box-shadow:var(--shadow);min-width:0}
   .charttitle{font-size:13px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin-bottom:4px}
@@ -198,7 +214,8 @@
         <button data-r="30d" class="active" onclick="setRange('30d')">30 días</button>
         <button data-r="mes" onclick="setRange('mes')">Este mes</button>
         <button data-r="mesant" onclick="setRange('mesant')">Mes anterior</button>
-        <span class="rng"><input type="date" id="r-from" onchange="setRange('custom')"> → <input type="date" id="r-to" onchange="setRange('custom')"></span>
+        <label class="drange" title="Elegir rango de fechas"><span class="ic">📅</span><input id="r-range" readonly placeholder="Elegir fechas"><span class="car">▾</span></label>
+        <input type="hidden" id="r-from"><input type="hidden" id="r-to">
       </div>
     </div>
     <div id="view-metricas"></div>
@@ -258,7 +275,8 @@ function rangeDates(){
   return{from:'2000-01-01',to:'2999-12-31'};
 }
 function setRange(type){RANGE={type};document.querySelectorAll('#filters button').forEach(b=>b.classList.toggle('active',b.dataset.r===type));
-  if(type!=='custom'){const r=rangeDates();$('#r-from').value=type==='total'?'':r.from;$('#r-to').value=type==='total'?'':r.to;} // fechas visibles = rango elegido
+  if(type!=='custom'){const r=rangeDates();$('#r-from').value=type==='total'?'':r.from;$('#r-to').value=type==='total'?'':r.to;
+    if(window._fp){if(type==='total')_fp.clear(false);else _fp.setDate([r.from,r.to],false);}} // el calendario muestra el rango elegido
   render();}
 const inRange=(f,r)=>f&&f>=r.from&&f<=r.to;
 
@@ -450,30 +468,7 @@ function renderMetricas(){
       ['Devoluciones','n',m=>m.dev,'Devolución = devueltos ÷ despachados',0,['devolución',m=>div(m.dev,m.desp)]],['En procesamiento','n',m=>m.proc,'Despachados que aún no se entregan ni devuelven'],
       ['Ganancia en procesamiento','$',m=>m.ganProc,m=>`Si se entregan todos los en camino (venta − proveedor − flete). Esperada con tu efectividad de ${fP(m.efC)}: ${f$(m.ganProcEsp)}`,1]];
     body+='<div class="cards" style="margin-top:6px">'+KEY.map(([l,t,f,d,sg,pc])=>{const v=f(tot);return`<div class="stat ${sg?(v<0?'red':'grn'):''}"><div class="k">${l}</div><div class="v">${FMT[t](v)}</div>${pc?`<div class="pc">${fP(pc[1](tot))}<small>${pc[0]}</small></div>`:''}<div class="f">${typeof d==='function'?d(tot):d}</div></div>`;}).join('')+'</div>';
-    body+='<details class="acc" open style="margin-top:28px"><summary>Ver todas las métricas</summary><div class="acc-body">';
-    // cada % va debajo del número al que corresponde
-    const ATT={'% de efectividad':'Pedidos entregados','% de cancelación':'Pedidos cancelados','% de devoluciones':'Pedidos devueltos','% despachados':'Pedidos despachados',
-      '% pedidos a oficina':'Pedidos a oficina','% efectividad oficina':'Entregados oficina','% cancelación oficina':'Cancelados oficina','% devoluciones oficina':'Devueltos oficina',
-      '% efectividad comentarios':'Entregados comentarios','% cancelación comentarios':'Ventas comentarios','% devoluciones comentarios':'Devueltos comentarios',
-      '% de compras dobles':'Pedidos de 2 unidades','% de compras triples':'Pedidos de 3 unidades','% pagos anticipados':'Pedidos con pago anticipado',
-      '% CPA Meta':'CPA Meta','% CPA Dropi':'CPA Dropi'};
-    const kids={};METRICS.forEach(d=>{if(ATT[d.l])(kids[ATT[d.l]]=kids[ATT[d.l]]||[]).push(d);});
-    let sec='';const flush=()=>{if(sec){body+=sec+'</div>';sec='';}};
-    const CH=buildCharts(),SK={'📦 Pedidos':'pedidos','🛒 Ventas':'ventas','🎯 CPA':'cpa','🧾 Preliminares':'prelim','💵 ROAS':'roas','💰 Rentabilidad':'rent'};let curK=null;
-    const charts=k=>k&&CH[k]&&CH[k].length?`<div class="chartgrid" style="margin-top:14px">${CH[k].join('')}</div>`:'';
-    METRICS.forEach(d=>{
-      if(ATT[d.l])return;
-      if(d.s){flush();body+=charts(curK);curK=SK[d.s];}
-      if(d.r){flush();sec='<div class="cards" style="margin-top:14px">';return;}
-      if(d.s2){flush();body+=`<div class="sec-h" style="font-size:11.5px;opacity:.85;margin-top:20px">${d.s2}</div>`;sec='<div class="cards">';return;}
-      if(d.s){flush();body+=`<div class="sec-h">${d.s}${d.est&&tot.est?'<span class="esttag">fletes estimados donde Dropi no los da</span>':''}</div>`;sec='<div class="cards">';return;}
-      if(d.p){sec+=`<div class="stat pend"><div class="k">${d.l}<span class="pendtag">Shopify</span></div><div class="v">pendiente</div><div class="f">${d.d||''}</div></div>`;return;}
-      const v=d.f(tot);const c=d.sign?(v<0?'red':'grn'):'';
-      const kk=kids[d.l]||[],pcs=kk.map(k=>`<div class="pc">${FMT[k.t](k.f(tot))}<small>${k.l.replace(/^% (de )?/,'')}</small></div>`).join('');
-      sec+=`<div class="stat ${c}"><div class="k">${d.l}</div><div class="v">${FMT[d.t](v)}</div>${pcs}${d.d?`<div class="f">${d.d}${kk.filter(k=>k.d).map(k=>' · '+k.l.replace(/^% (de )?/,'')+' = '+k.d).join('')}</div>`:''}</div>`;
-    });flush();body+=charts(curK);
-    if(CH.dist.length)body+=`<div class="sec-h">📍 Por transportadora, producto, ciudad y día de la semana</div><div class="chartgrid">${CH.dist.join('')}</div>`;
-    body+='</div></details>';
+    body+=renderDetalle(tot,L,M,SH);
   }else{
     const shKey=DIM==='dia'?(f=>f):DIM==='semana'?(f=>isWeekend(f)?'Fin de semana (sáb-dom)':'Entre semana (lun-vie)'):null;
     const G=groupsFor(DIM,L,M).map(g=>({...g,m:calc(g.list,g.mt,shKey?{orders:SH.orders.filter(o=>shKey(o.fecha)===g.name),drafts:SH.drafts.filter(d=>shKey(d.fecha)===g.name)}:null)}));
@@ -491,110 +486,153 @@ function renderMetricas(){
     body=note+h+'</tbody></table></div>';
   }
   $('#view-metricas').innerHTML=head+dimsH+body;
+  initCharts();
 }
 
-// ───── Gráficas ─────
-// Paleta categórica validada para el fondo oscuro (#101019): azul, naranja, aqua, amarillo. Estado: bueno/alerta/serio/crítico.
-const CC={b:'#3987e5',o:'#d95926',a:'#199e70',y:'#c98500',good:'#0ca30c',warn:'#fab219',ser:'#ec835a',crit:'#d03b3b',gray:'#5b5870',grid:'rgba(255,255,255,.07)'};
-const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-document.addEventListener('mousemove',e=>{const T=$('#tip');if(!T)return;const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){T.style.opacity=0;return;}
-  T.innerHTML=t.getAttribute('data-tip');T.style.opacity=1;T.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-T.offsetWidth-8))+'px';T.style.top=(e.clientY+16)+'px';});
-const card=(title,body,sub,full)=>`<div class="chartcard"${full?' style="grid-column:1/-1"':''}><div class="charttitle">${title}</div>${sub?`<div class="chartsub">${sub}</div>`:''}${body}</div>`;
-const legend=items=>`<div class="lg">${items.map(([n,c,dash])=>`<span><i style="background:${c}${dash?';height:2px;border-top:2px dashed '+c+';background:none':''}"></i>${n}</span>`).join('')}</div>`;
+// ───── Gráficas interactivas (ECharts) ─────
+// Paleta categórica validada para el fondo oscuro: azul, naranja, aqua, amarillo. Estados: bueno/alerta/serio/crítico.
+const CC={b:'#3987e5',o:'#d95926',a:'#199e70',y:'#c98500',v:'#9085e9',good:'#0ca30c',warn:'#fab219',ser:'#ec835a',crit:'#d03b3b',gray:'#5b5870'};
+const fM=v=>{if(v==null||!isFinite(v))return'—';const a=Math.abs(v),s=v<0?'-$':'$';return a>=1e6?s+(a/1e6).toLocaleString('es-CO',{maximumFractionDigits:2})+'M':a>=1e3?s+Math.round(a/1e3)+'k':s+Math.round(a);};
+let EC_Q=[],EC_I=[];
+function ec(id,opt,h){EC_Q.push([id,opt]);return`<div id="${id}" class="ec" style="height:${h||300}px"></div>`;}
+function initCharts(){
+  EC_I.forEach(c=>{try{c.dispose()}catch(e){}});EC_I=[];
+  if(!window.echarts){EC_Q=[];return;}
+  EC_Q.forEach(([id,opt])=>{const el=document.getElementById(id);if(!el)return;const c=echarts.init(el,null,{renderer:'canvas'});c.setOption(Object.assign({
+    backgroundColor:'transparent',animationDuration:900,animationEasing:'cubicOut',
+    textStyle:{fontFamily:'Inter',color:'#948fb0'},
+    tooltip:{backgroundColor:'#1c1b2a',borderColor:'#2a2840',textStyle:{color:'#ece9f5',fontSize:12},extraCssText:'border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.5)'},
+  },opt));EC_I.push(c);});
+  EC_Q=[];
+}
+window.addEventListener('resize',()=>EC_I.forEach(c=>c.resize()));
+const box=(title,sub,inner,full)=>`<div class="chartcard"${full?' style="grid-column:1/-1"':''}><div class="charttitle">${title}</div>${sub?`<div class="chartsub">${sub}</div>`:''}${inner}</div>`;
+const AX={axisLine:{lineStyle:{color:'#2a2840'}},axisTick:{show:false},axisLabel:{color:'#948fb0',fontSize:11},splitLine:{lineStyle:{color:'rgba(255,255,255,.06)'}}};
+const LEG={textStyle:{color:'#948fb0',fontSize:12},itemWidth:12,itemHeight:12,icon:'roundRect',top:0};
+const grad=(c)=>({type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:c+'66'},{offset:1,color:c+'05'}]});
+// dona con texto al centro
+function donut(id,data,center,sub,h){
+  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fN(p.value)} · ${p.percent}%`},legend:{...LEG,top:'bottom'},
+    title:{text:center,subtext:sub,left:'center',top:'38%',textStyle:{color:'#ece9f5',fontSize:24,fontWeight:800},subtextStyle:{color:'#948fb0',fontSize:11}},
+    series:[{type:'pie',radius:['52%','74%'],center:['50%','45%'],padAngle:2,itemStyle:{borderRadius:6,borderColor:'#101019',borderWidth:2},
+      label:{show:true,color:'#ece9f5',formatter:p=>p.value?`${p.value}`:'',fontWeight:700},labelLine:{length:8,length2:6},
+      emphasis:{scale:true,scaleSize:8,label:{fontSize:14}},data:data.filter(d=>d.value>0).map(d=>({name:d.name,value:d.value,itemStyle:{color:d.c}}))}]},h||300);
+}
+// barras con un color por barra
+function bars(id,cats,vals,colors,fmt,opts={}){
+  const hor=opts.horizontal;
+  const cat={type:'category',data:cats,...AX,axisLabel:{...AX.axisLabel,interval:0,width:hor?140:90,overflow:'break'}},val={type:'value',...AX,axisLabel:{...AX.axisLabel,show:!hor,formatter:v=>fmt(v)}};
+  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`<b>${p[0].name}</b><br>${fmt(p[0].value)}${opts.extra?'<br>'+opts.extra[p[0].dataIndex]:''}`},
+    grid:{left:hor?150:50,right:hor?70:16,top:opts.markLine?28:20,bottom:hor?10:50,containLabel:!hor},
+    xAxis:hor?val:cat,yAxis:hor?{...cat,inverse:true}:val,
+    series:[{type:'bar',barMaxWidth:hor?22:46,data:vals.map((v,i)=>({value:v,itemStyle:{color:colors[i%colors.length],borderRadius:hor?[0,6,6,0]:[6,6,0,0]}})),
+      label:{show:true,position:hor?'right':'top',color:'#ece9f5',fontWeight:700,formatter:p=>opts.labels?opts.labels[p.dataIndex]:fmt(p.value)},
+      markLine:opts.markLine?{symbol:'none',lineStyle:{color:CC.crit,type:'dashed'},label:{color:CC.ser,formatter:opts.markLine[1]},data:[hor?{xAxis:opts.markLine[0]}:{yAxis:opts.markLine[0]}]}:undefined}]},opts.h||300);
+}
+// embudo
+function funnel(id,data,h){
+  const top=data[0].value||1;
+  return ec(id,{tooltip:{trigger:'item',formatter:p=>`<b>${p.name}</b><br>${fN(p.value)} · ${fP(p.value/top)} del inicio`},
+    series:[{type:'funnel',left:'8%',width:'84%',top:10,bottom:10,minSize:'22%',gap:4,sort:'none',itemStyle:{borderColor:'#101019',borderWidth:0,borderRadius:6},
+      label:{show:true,position:'inside',color:'#fff',fontWeight:700,fontSize:13,formatter:p=>`${p.name}  ${fN(p.value)}${p.dataIndex?'  ('+fP(p.value/top)+')':''}`},
+      emphasis:{label:{fontSize:15}},data:data.map(d=>({name:d.name,value:d.value,itemStyle:{color:d.c}}))}]},h||260);
+}
+// medidores de %
+function gauges(id,items,h){
+  const n=items.length;
+  return ec(id,{series:items.map((g,i)=>({type:'gauge',center:[`${(i+.5)/n*100}%`,'58%'],radius:n>1?'78%':'85%',startAngle:210,endAngle:-30,min:0,max:100,
+    progress:{show:true,width:14,roundCap:true,itemStyle:{color:g.c}},axisLine:{roundCap:true,lineStyle:{width:14,color:[[1,'rgba(255,255,255,.07)']]}},
+    pointer:{show:false},axisTick:{show:false},splitLine:{show:false},axisLabel:{show:false},anchor:{show:false},
+    title:{offsetCenter:[0,'42%'],color:'#948fb0',fontSize:12},detail:{offsetCenter:[0,'0%'],valueAnimation:true,color:'#ece9f5',fontSize:26,fontWeight:800,formatter:v=>v==null?'—':v.toLocaleString('es-CO',{maximumFractionDigits:1})+'%'},
+    data:[{value:g.v==null?0:+(g.v*100).toFixed(1),name:g.name}]}))},h||230);
+}
+// serie diaria: barras apiladas + líneas, con zoom
+function daily(id,days,series,fmt,h){
+  const lab=days.map(d=>DOW[new Date(d+'T12:00:00').getDay()]+' '+d.slice(8)+'/'+d.slice(5,7));
+  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'cross',label:{backgroundColor:'#2a2840'}},valueFormatter:v=>fmt(v)},legend:LEG,
+    grid:{left:56,right:18,top:36,bottom:62},
+    dataZoom:days.length>14?[{type:'inside',start:0,end:100},{type:'slider',height:18,bottom:8,borderColor:'#2a2840',backgroundColor:'rgba(255,255,255,.03)',fillerColor:'rgba(124,92,255,.18)',handleStyle:{color:'#7c5cff'},textStyle:{color:'#948fb0'},dataBackground:{lineStyle:{color:'#5b5870'},areaStyle:{color:'rgba(91,88,112,.3)'}}}]:[],
+    xAxis:{type:'category',data:lab,...AX,axisLabel:{...AX.axisLabel,hideOverlap:true}},yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:v=>fmt(v)}},
+    series:series.map(s=>s.type==='bar'?{name:s.n,type:'bar',stack:s.stack,barMaxWidth:26,data:s.v,itemStyle:{color:s.c,borderRadius:s.top?[5,5,0,0]:0},emphasis:{focus:'series'}}
+      :{name:s.n,type:'line',smooth:.35,symbol:'circle',symbolSize:7,showSymbol:days.length<=31,data:s.v,connectNulls:false,lineStyle:{width:3,color:s.c,type:s.dash?'dashed':'solid'},itemStyle:{color:s.c,borderColor:'#101019',borderWidth:2},
+        areaStyle:s.area?{color:grad(s.c)}:undefined,emphasis:{focus:'series'},markLine:s.avg?{symbol:'none',lineStyle:{color:s.c,type:'dotted',opacity:.7},label:{color:s.c,formatter:p=>'prom. '+fmt(p.value)},data:[{type:'average'}]}:undefined})},h||330);
+}
+// cascada (barras flotantes: cada paso va de donde quedó el anterior)
+function cascada(id,steps,h){
+  let run=0;const rows=steps.map((s,i)=>{let lo,hi,c;if(s.tipo==='='){lo=Math.min(0,s.v);hi=Math.max(0,s.v);run=s.v;c=s.v<0?CC.crit:s.last?CC.good:CC.b;}
+    else{const prev=run;run-=s.v;lo=Math.min(prev,run);hi=Math.max(prev,run);c=CC.gray;}return[i,lo,hi,c];});
+  return ec(id,{tooltip:{trigger:'item',formatter:p=>{const s=steps[p.dataIndex];return`<b>${s.l}</b><br>${s.tipo==='-'?'− ':''}${f$(s.v)}`;}},
+    grid:{left:64,right:16,top:34,bottom:44},xAxis:{type:'category',data:steps.map(s=>s.l),...AX,axisLabel:{...AX.axisLabel,interval:0,width:96,overflow:'break'}},
+    yAxis:{type:'value',...AX,axisLabel:{...AX.axisLabel,formatter:fM}},
+    series:[{type:'custom',encode:{x:0,y:[1,2]},data:rows,renderItem:(p,api)=>{const i=api.value(0),a=api.coord([i,api.value(1)]),b=api.coord([i,api.value(2)]),w=Math.min(80,api.size([1,0])[0]*.56),s=steps[i];
+      return{type:'group',children:[{type:'rect',shape:{x:a[0]-w/2,y:b[1],width:w,height:Math.max(2,a[1]-b[1]),r:6},style:{fill:rows[i][3]},emphasis:{style:{opacity:.85}}},
+        {type:'text',style:{text:(s.tipo==='-'?'− ':'')+fM(s.v),x:a[0],y:b[1]-8,fill:'#ece9f5',font:'800 12px Inter',align:'center',verticalAlign:'bottom'}}]};}}]},h||340);
+}
+// barras apiladas por grupo (entregados / en proceso / devueltos / cancelados)
+function estadoPorGrupo(id,G,h){
+  const rows=G.filter(g=>g.list.length).map(g=>({n:g.label||g.name,m:calc(g.list,{})}));
+  const S=[['Entregados',r=>r.m.ent,CC.good],['En proceso',r=>r.m.proc,CC.b],['Devueltos',r=>r.m.dev,CC.ser],['Cancelados',r=>r.m.canc,CC.crit]];
+  return ec(id,{tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=rows[p[0].dataIndex];return`<b>${r.n}</b> · ${r.m.comp} pedidos<br>`+p.map(x=>`${x.marker}${x.seriesName}: <b>${x.value}</b>`).join('<br>')+`<br>Efectividad: <b>${fP(div(r.m.ent,r.m.desp))}</b>`;}},
+    legend:LEG,grid:{left:10,right:60,top:34,bottom:6,containLabel:true},
+    xAxis:{type:'value',...AX},yAxis:{type:'category',inverse:true,data:rows.map(r=>r.n),...AX,axisLabel:{...AX.axisLabel,width:130,overflow:'truncate'}},
+    series:S.map(([n,f,c],i)=>({name:n,type:'bar',stack:'t',barMaxWidth:24,data:rows.map(f),itemStyle:{color:c,borderRadius:i===3?[0,5,5,0]:0},emphasis:{focus:'series'},
+      label:i===3?{show:true,position:'right',color:'#ece9f5',fontWeight:700,formatter:p=>fP(div(rows[p.dataIndex].m.ent,rows[p.dataIndex].m.desp))}:undefined}))},h||Math.max(170,rows.length*42+60));
+}
 
-// barras horizontales: [{l, v, c, txt, sub, tip}]
-function hbars(items,fmt){
-  const max=Math.max(...items.map(i=>Math.abs(i.v)||0),1);
-  return`<div class="hb">${items.map(i=>`<div class="hbr" data-tip="${esc(i.tip||('<b>'+i.l+'</b><br>'+fmt(i.v)))}"><div class="hbl">${i.l}</div><div class="hbt"><div class="hbf" style="width:${Math.max(1.5,Math.abs(i.v||0)/max*100)}%;background:${i.c||CC.b}"></div></div><div class="hbv">${i.txt!=null?i.txt:fmt(i.v)}${i.sub?`<small>${i.sub}</small>`:''}</div></div>`).join('')}</div>`;
-}
-// barra 100% apilada: [{l,v,c}]
-function stack(items){
-  const tot=items.reduce((s,i)=>s+i.v,0)||1;
-  return`<div class="stk">${items.filter(i=>i.v>0).map(i=>`<div style="flex:${i.v};background:${i.c}" data-tip="<b>${esc(i.l)}</b><br>${i.v} pedidos · ${fP(i.v/tot)}">${i.v/tot>=.08?fP(i.v/tot):''}</div>`).join('')}</div>`+
-    legend(items.map(i=>[`${i.l} <b>${i.v}</b>`,i.c]));
-}
-// serie de tiempo: columnas (una serie) o líneas (varias). days = ['YYYY-MM-DD'...], series=[{n,c,v:[...],dash}]
-function timeChart(days,series,fmt,kind,W=420){
-  const H=W>600?230:250,pl=58,pr=10,pt=12,pb=26,iw=W-pl-pr,ih=H-pt-pb;
-  const vals=series.flatMap(s=>s.v).filter(v=>v!=null&&isFinite(v));
-  const mx=Math.max(...vals,0)*1.12||1,n=days.length,bw=iw/Math.max(n,1);
-  const y=v=>pt+ih-(v/mx)*ih,x=i=>pl+bw*i+bw/2;
-  let g='';
-  for(let k=0;k<=4;k++){const v=mx*k/4,yy=y(v);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="${CC.grid}"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" class="ax">${fmt(v)}</text>`;}
-  const step=Math.ceil(n/(W>600?12:6));days.forEach((d,i)=>{if(i%step===0)g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" class="ax">${d.slice(8)}/${d.slice(5,7)}</text>`;});
-  let m='';
-  if(kind==='col'){const s=series[0];s.v.forEach((v,i)=>{if(!v)return;const w=Math.max(2,Math.min(26,bw-3)),yy=y(v);m+=`<path d="M${x(i)-w/2},${pt+ih}V${yy+3}q0,-3 3,-3h${w-6}q3,0 3,3V${pt+ih}Z" fill="${s.c}"/>`;});}
-  else series.forEach(s=>{let p='';s.v.forEach((v,i)=>{if(v==null||!isFinite(v))return;p+=(p&&s.v[i-1]!=null&&isFinite(s.v[i-1])?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1);});
-    m+=`<path d="${p}" fill="none" stroke="${s.c}" stroke-width="2" stroke-linejoin="round"${s.dash?' stroke-dasharray="5 4"':''}/>`;
-    if(n<=45)s.v.forEach((v,i)=>{if(v!=null&&isFinite(v))m+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.c}" stroke="#101019" stroke-width="1.5"/>`;});});
-  // zonas de hover por día
-  let h='';days.forEach((d,i)=>{const tip=`<b>${DOW[new Date(d+'T12:00:00').getDay()]} ${d.slice(8)}/${d.slice(5,7)}</b>`+series.map(s=>`<br><i style="background:${s.c}"></i>${s.n}: <b>${fmt(s.v[i])}</b>`).join('');
-    h+=`<rect x="${pl+bw*i}" y="${pt}" width="${bw}" height="${ih}" fill="transparent" class="hz" data-tip="${esc(tip)}"/>`;});
-  return`<svg viewBox="0 0 ${W} ${H}" class="tc">${g}${m}${h}</svg>`+(series.length>1?legend(series.map(s=>[s.n,s.c,s.dash])):'');
-}
-// cascada de rentabilidad: [{l,v,tipo:'+'|'-'|'='}]
-function waterfall(steps){
-  const W=900,H=280,pl=10,pr=10,pt=26,pb=44,iw=W-pl-pr,ih=H-pt-pb;
-  let run=0;const bars=steps.map(s=>{let a,b;if(s.tipo==='='){a=0;b=s.v;run=s.v;}else if(s.tipo==='+'){a=run;b=run+s.v;run=b;}else{a=run;b=run-s.v;run=b;}return{...s,a,b};});
-  const lo=Math.min(0,...bars.map(b=>Math.min(b.a,b.b))),hi=Math.max(...bars.map(b=>Math.max(b.a,b.b)),1);
-  const y=v=>pt+(hi-v)/(hi-lo)*ih,bw=iw/bars.length,w=Math.min(64,bw*.62);
-  let o=`<line x1="${pl}" x2="${W-pr}" y1="${y(0)}" y2="${y(0)}" stroke="rgba(255,255,255,.25)"/>`;
-  bars.forEach((b,i)=>{const cx=pl+bw*i+bw/2,top=y(Math.max(b.a,b.b)),hgt=Math.max(2,Math.abs(y(b.a)-y(b.b)));
-    const c=b.tipo==='='?(b.v<0?CC.crit:b.last?CC.good:CC.b):b.tipo==='+'?CC.b:CC.gray;
-    o+=`<rect x="${cx-w/2}" y="${top}" width="${w}" height="${hgt}" rx="3" fill="${c}" data-tip="<b>${esc(b.l)}</b><br>${b.tipo==='-'?'−':''}${f$(b.v)}"/>`;
-    o+=`<text x="${cx}" y="${top-7}" text-anchor="middle" class="wv">${b.tipo==='-'?'−':''}${f$(b.v)}</text>`;
-    o+=`<text x="${cx}" y="${H-24}" text-anchor="middle" class="ax">${b.l.split(' ')[0]}</text><text x="${cx}" y="${H-11}" text-anchor="middle" class="ax">${b.l.split(' ').slice(1).join(' ')}</text>`;
-    if(i<bars.length-1&&bars[i+1].tipo!=='=')o+=`<line x1="${cx+w/2}" x2="${cx+bw-w/2}" y1="${y(b.b)}" y2="${y(b.b)}" stroke="rgba(255,255,255,.25)" stroke-dasharray="3 3"/>`;});
-  return`<svg viewBox="0 0 ${W} ${H}" class="tc">${o}</svg>`;
-}
-
-// arma las gráficas de cada sección de Métricas → General
-function buildCharts(){
-  const r=rangeDates();
-  const L=ORDERS.filter(o=>inRange(o.fecha,r)),M=META.filter(m=>inRange(m.fecha,r));
-  const SH={orders:SHOP.orders.filter(o=>inRange(o.fecha,r)),drafts:SHOP.drafts.filter(d=>inRange(d.fecha,r))};
-  const msum=X=>({inv:X.reduce((s,m)=>s+m.inversion,0),ventas:X.reduce((s,m)=>s+m.ventas,0),fac:X.reduce((s,m)=>s+m.facturacion,0)});
-  const m=calc(L,msum(M),SH);
-  const X={pedidos:[],ventas:[],cpa:[],prelim:[],roas:[],rent:[],dist:[]};
-  if(!L.length&&!M.length)return X;
-  // días del rango con datos
+// detalle de General: cada sección con sus gráficas
+function renderDetalle(m,L,M,SH){
+  const msum=X=>({inv:X.reduce((s,x)=>s+x.inversion,0),ventas:X.reduce((s,x)=>s+x.ventas,0),fac:X.reduce((s,x)=>s+x.facturacion,0)});
   const ds=[...new Set([...L.map(o=>o.fecha),...M.map(x=>x.fecha)])].sort();
-  const days=[];if(ds.length){for(let d=ds[0];d<=ds[ds.length-1];d=addDays(d,1))days.push(d);}
-  const per=days.map(d=>{const Ld=L.filter(o=>o.fecha===d),Md=msum(M.filter(x=>x.fecha===d));return{inv:Md.inv,vm:Md.ventas,fm:Md.fac,dropi:Ld.length,shop:SH.orders.filter(o=>o.fecha===d).length,prel:SH.drafts.filter(x=>x.fecha===d&&x.valido).length};});
-  // 1. estado de pedidos
-  X.pedidos.push(card('Estado de los pedidos',stack([{l:'Entregados',v:m.ent,c:CC.good},{l:'En proceso',v:m.proc,c:CC.b},{l:'Devueltos',v:m.dev,c:CC.ser},{l:'Cancelados',v:m.canc,c:CC.crit}]),
-    `${m.comp} pedidos · efectividad <b>${fP(div(m.ent,m.desp))}</b> · cancelación <b>${fP(div(m.canc,m.comp))}</b> · devolución <b>${fP(div(m.dev,m.desp))}</b>`));
-  // 2. origen de ventas
-  X.ventas.push(card('¿De dónde vienen las ventas?',hbars([{l:'Ventas Meta (reporte)',v:m.ventasMeta,c:CC.b},{l:'Ventas Shopify',v:m.shop.ventas,c:CC.a},{l:'Preliminar recuperado',v:m.shop.conv,c:CC.y},{l:'Manuales',v:m.shop.manual,c:CC.gray},{l:'Total en Dropi',v:m.comp,c:CC.o}],fN)));
-  // 3. inversión diaria
-  X.roas.push(card('Inversión diaria en Meta',timeChart(days,[{n:'Inversión',c:CC.b,v:per.map(p=>p.inv)}],f$,'col',900),`Total ${f$(m.inv)} · promedio ${f$(m.inv/Math.max(1,per.filter(p=>p.inv>0).length))} por día con pauta`,1));
-  // 4. ventas por día
-  X.ventas.push(card('Ventas por día',timeChart(days,[{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)},{n:'Shopify',c:CC.a,v:per.map(p=>p.shop)},{n:'Dropi',c:CC.o,v:per.map(p=>p.dropi)},{n:'Preliminares',c:CC.y,v:per.map(p=>p.prel),dash:1}],fN)));
-  // 5. CPA por día
-  X.cpa.push(card('CPA por día',timeChart(days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?p.inv/p.vm:null)},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?p.inv/p.dropi:null)}],f$),`CPA Meta ${f$(div(m.inv,m.ventasMeta))} · CPA Dropi ${f$(div(m.inv,m.comp))} en el rango`));
-  // 6. ROAS por día
-  X.roas.push(card('ROAS Meta por día',timeChart(days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?p.fm/p.inv:null)}],fX),`ROAS Meta del rango: <b>${fX(div(m.factMeta,m.inv))}</b>`));
-  // 7. facturación
-  X.roas.push(card('Facturación vs inversión',hbars([{l:'Inversión',v:m.inv,c:CC.gray},{l:'Facturación Meta',v:m.factMeta,c:CC.b},{l:'Fact. incl. preliminares',v:m.factMeta+m.shop.valPrelim,c:CC.b},{l:'Facturación despachada',v:m.factDesp,c:CC.o},{l:'Facturación entregada',v:m.factEnt,c:CC.a},{l:'Dinero ingresado a Dropi',v:m.ingresado,c:CC.y}],f$)));
-  // 8. ROAS comparativo
-  const ro=[['ROAS Meta',div(m.factMeta,m.inv),CC.b],['ROAS incl. preliminares',div(m.factMeta+m.shop.valPrelim,m.inv),CC.b],['ROAS despachado',div(m.factDesp,m.inv),CC.o],['ROAS entregado',div(m.factEnt,m.inv),CC.a],['ROAS recolectado',div(m.ingresado,m.inv),CC.y]];
-  X.roas.push(card('ROAS',hbars(ro.map(([l,v,c])=>({l,v:v||0,c,txt:fX(v)})),fX),'Recolectado = lo que de verdad entró a Dropi ÷ inversión. Por debajo de 1,00x se pierde plata.'));
-  // 9. preliminares
+  const days=[];if(ds.length)for(let d=ds[0];d<=ds[ds.length-1];d=addDays(d,1))days.push(d);
+  const per=days.map(d=>{const Ld=L.filter(o=>o.fecha===d),Md=msum(M.filter(x=>x.fecha===d));
+    return{inv:Md.inv,vm:Md.ventas,fm:Md.fac,dropi:Ld.length,tienda:Ld.filter(o=>o.origen==='shopify').length,prel:Ld.filter(o=>o.origen==='preliminar').length,manual:Ld.filter(o=>o.origen!=='shopify'&&o.origen!=='preliminar').length,prelim:SH.drafts.filter(x=>x.fecha===d&&x.valido).length};});
+  const nz=v=>v||null, sec=(t,inner)=>`<div class="sec-h">${t}</div><div class="chartgrid">${inner}</div>`;
+  let h='';
+  // 📦 Pedidos
+  h+=sec('📦 Pedidos',
+    box('Estado de los pedidos',`${m.comp} pedidos completos · ${m.desp} despachados (${fP(div(m.desp,m.comp))})`,donut('ch-estado',[{name:'Entregados',value:m.ent,c:CC.good},{name:'En proceso',value:m.proc,c:CC.b},{name:'Devueltos',value:m.dev,c:CC.ser},{name:'Cancelados',value:m.canc,c:CC.crit}],fP(div(m.ent,m.desp)),'efectividad'))+
+    box('Embudo de pedidos',`Cancelación ${fP(div(m.canc,m.comp))} · devolución ${fP(div(m.dev,m.desp))}`,funnel('ch-embudo',[{name:'Completos',value:m.comp,c:CC.v},{name:'Despachados',value:m.desp,c:CC.b},{name:'Entregados',value:m.ent,c:CC.good}])));
+  // 🛒 Ventas
+  h+=sec('🛒 Ventas',
+    box('Ventas por fuente','',bars('ch-ventas',['Ventas Meta','Shopify','Preliminar recuperado','Dropi sin preliminares','Ventas Dropi'],[m.ventasMeta,m.shop.ventas,m.shop.conv,m.comp-m.shop.conv,m.comp],[CC.b,CC.a,CC.y,CC.o,CC.o],fN))+
+    box('¿De dónde salen los pedidos de Dropi?',`Efectividad de las ventas de la tienda: <b>${fP(m.shop.efMeta)}</b>`,donut('ch-origen',[{name:'Tienda Shopify',value:L.filter(o=>o.origen==='shopify').length,c:CC.a},{name:'Preliminar recuperado',value:m.shop.conv,c:CC.y},{name:'Manual',value:m.shop.manual,c:CC.gray}],fN(m.comp),'pedidos'))+
+    box('Ventas día a día','Barras = pedidos de Dropi según de dónde vinieron · línea = compras que reporta Meta. Arrastra la barra de abajo para hacer zoom.',
+      daily('ch-ventas-dia',days,[{n:'Tienda',type:'bar',stack:'v',c:CC.a,v:per.map(p=>p.tienda)},{n:'Preliminar recuperado',type:'bar',stack:'v',c:CC.y,v:per.map(p=>p.prel)},{n:'Manual',type:'bar',stack:'v',c:CC.gray,v:per.map(p=>p.manual),top:1},{n:'Ventas Meta',c:CC.b,v:per.map(p=>p.vm)}],fN),1));
+  // 🎯 CPA
+  h+=sec('🎯 CPA',
+    box('CPA',`% CPA Meta ${fP(div(m.inv,m.factMeta))} · % CPA Dropi ${fP(div(m.inv,m.valDropi))}`,bars('ch-cpa',['CPA Meta','CPA Dropi','CPA despachado','CPA entregado'],[div(m.inv,m.ventasMeta),div(m.inv,m.comp),div(m.inv,m.desp),div(m.inv,m.ent)],[CC.b,CC.o,CC.v,CC.good],f$,{labels:[f$(div(m.inv,m.ventasMeta))+' · '+fP(div(m.inv,m.factMeta)),f$(div(m.inv,m.comp))+' · '+fP(div(m.inv,m.valDropi)),f$(div(m.inv,m.desp)),f$(div(m.inv,m.ent))]}))+
+    box('CPA día a día','Días sin ventas no tienen CPA',daily('ch-cpa-dia',days,[{n:'CPA Meta',c:CC.b,v:per.map(p=>p.vm?Math.round(p.inv/p.vm):null),area:1,avg:1},{n:'CPA Dropi',c:CC.o,v:per.map(p=>p.dropi?Math.round(p.inv/p.dropi):null),avg:1}],f$,300)));
+  // 🧾 Preliminares
   const pe=L.filter(o=>o.origen==='preliminar'&&isEnt(o)).length;
-  X.prelim.push(card('Preliminares',hbars([{l:'Preliminares',v:m.shop.prelim||0,c:CC.y},{l:'Recuperados',v:m.shop.conv,c:CC.y,sub:fP(div(m.shop.prelimConvD,m.shop.prelim))+' conversión'},{l:'Entregados',v:pe,c:CC.good,sub:fP(m.shop.efPrelim)+' efectividad'}],fN)));
-  // 10. CPA comparativo
-  X.cpa.unshift(card('CPA',hbars([{l:'CPA Meta',v:div(m.inv,m.ventasMeta)||0,c:CC.b,sub:fP(div(m.inv,m.factMeta))},{l:'CPA Dropi',v:div(m.inv,m.comp)||0,c:CC.o,sub:fP(div(m.inv,m.valDropi))},{l:'CPA despachado',v:div(m.inv,m.desp)||0,c:CC.o},{l:'CPA entregado',v:div(m.inv,m.ent)||0,c:CC.a}],f$)));
-  // 11. cascada de rentabilidad
-  X.rent.push(card('¿A dónde se va la plata? (rentabilidad)',waterfall([{l:'Facturación entregada',v:m.factEnt,tipo:'='},{l:'Costo proveedores',v:m.cProv,tipo:'-'},{l:'Fletes entregas',v:m.cTransp-L.filter(isDev).reduce((s,o)=>s+flete(o),0),tipo:'-'},{l:'Fletes devoluciones',v:L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0),tipo:'-'},{l:'Dinero ingresado',v:m.ingresado,tipo:'='},{l:'Inversión Meta',v:m.inv,tipo:'-'},{l:'Ganancia neta',v:m.gan,tipo:'=',last:1}]),
-    `Ganancia en camino: <b>${f$(m.ganProc)}</b> si se entregan los ${m.proc} pedidos en proceso (esperada ${f$(m.ganProcEsp)})`,1));
-  // 12. transportadoras y productos y ciudades (efectividad)
-  const efBars=G=>hbars(G.filter(g=>g.list.length).map(g=>{const c=calc(g.list,{});const e=div(c.ent,c.desp);return{l:g.label||g.name,v:c.comp,c:CC.b,txt:fN(c.comp),sub:(e==null?'—':fP(e))+' efect.',tip:`<b>${esc(g.name)}</b><br>${c.comp} pedidos · ${c.ent} entregados · ${c.dev} devueltos · ${c.canc} cancelados<br>Efectividad ${fP(e)}`};}),fN);
-  X.dist.push(card('Por transportadora',efBars(groupsFor('transp',L,[])),'Pedidos y % de efectividad'));
-  X.dist.push(card('Por producto',efBars(groupsFor('producto',L,[])),'Pedidos y % de efectividad'));
-  X.dist.push(card('Ciudades principales',efBars(groupsFor('ciudad',L,[])),'Pedidos y % de efectividad'));
-  X.dist.push(card('Fin de semana vs entre semana',efBars(groupsFor('semana',L,[])),'Pedidos y % de efectividad'));
-  X.roas.push(X.roas.shift()); // inversión diaria (ancho completo) al final
-  return X;
+  h+=sec('🧾 Preliminares',
+    box('Embudo de preliminares','Checkouts abandonados del formulario → recuperados en Dropi → entregados',funnel('ch-prel',[{name:'Preliminares',value:m.shop.prelim||0,c:CC.y},{name:'Recuperados',value:m.shop.conv,c:CC.o},{name:'Entregados',value:pe,c:CC.good}]))+
+    box('Conversión y efectividad','',gauges('ch-prel-g',[{name:'% conversión',v:m.shop.prelim==null?null:div(m.shop.prelimConvD,m.shop.prelim),c:CC.y},{name:'% efectividad',v:m.shop.efPrelim,c:CC.good}])));
+  // 💵 ROAS
+  h+=sec('💵 ROAS',
+    box('Inversión vs facturación','',bars('ch-fact',['Inversión','Facturación Meta','Fact. incl. preliminares','Facturación despachada','Facturación entregada','Dinero ingresado a Dropi'],[m.inv,m.factMeta,m.factMeta+m.shop.valPrelim,m.factDesp,m.factEnt,m.ingresado],[CC.crit,CC.b,CC.b,CC.o,CC.good,CC.y],fM,{horizontal:1,h:300}))+
+    box('ROAS','Línea roja = 1,00x (por debajo se pierde plata)',bars('ch-roas',['ROAS Meta','ROAS entregado','ROAS recolectado','ROAS incl. preliminares','ROAS despachado'],[div(m.factMeta,m.inv),div(m.factEnt,m.inv),div(m.ingresado,m.inv),div(m.factMeta+m.shop.valPrelim,m.inv),div(m.factDesp,m.inv)].map(v=>v==null?0:+v.toFixed(2)),[CC.b,CC.good,CC.y,CC.b,CC.o],fX,{markLine:[1,'1,00x']}))+
+    box('Inversión y ROAS día a día',`% recolectado: <b>${fP(div(m.ingresado,m.factDesp))}</b> (dinero que entró ÷ facturación despachada)`,
+      daily('ch-inv-dia',days,[{n:'Inversión',type:'bar',c:CC.b,v:per.map(p=>p.inv),top:1}],f$,260)+daily('ch-roas-dia',days,[{n:'ROAS Meta',c:CC.a,v:per.map(p=>p.inv?+(p.fm/p.inv).toFixed(2):null),area:1,avg:1}],fX,240),1));
+  // 💰 Rentabilidad
+  const fdev=L.filter(isDev).reduce((s,o)=>s+flete(o)+devFlete(o),0);
+  h+=sec('💰 Rentabilidad'+(m.est?'<span class="esttag">algunos fletes estimados</span>':''),
+    box('¿A dónde se va la plata?',`Costos totales ${f$(m.costos)} · margen neto <b>${fP(div(m.gan,m.ingresado))}</b>`,cascada('ch-casc',[{l:'Facturación entregada',v:m.factEnt,tipo:'='},{l:'Proveedores',v:m.cProv,tipo:'-'},{l:'Fletes entregas',v:m.cTransp-L.filter(isDev).reduce((s,o)=>s+flete(o),0),tipo:'-'},{l:'Fletes devoluciones',v:fdev,tipo:'-'},{l:'Dinero ingresado a Dropi',v:m.ingresado,tipo:'='},{l:'Inversión Meta',v:m.inv,tipo:'-'},{l:'Ganancia neta',v:m.gan,tipo:'=',last:1}]),1)+
+    box('Ganancia hoy y en camino',`${m.proc} pedidos en proceso · esperada con tu efectividad de ${fP(m.efC)}`,bars('ch-gan',['Ganancia neta hoy','En camino (esperada)','Proyectada al cerrar'],[m.gan,m.ganProcEsp,m.gan+m.ganProcEsp],[m.gan<0?CC.crit:CC.good,CC.b,(m.gan+m.ganProcEsp)<0?CC.crit:CC.good],fM,{horizontal:1,h:220,labels:[f$(m.gan),f$(m.ganProcEsp),f$(m.gan+m.ganProcEsp)]}))+
+    box('Promedios por pedido','',bars('ch-prom',['Ingreso por entregado','Flete promedio','Flete devolución','Costo proveedor','Ganancia por entregado'],[div(m.ingresado,m.ent),m.fleteProm,m.fleteDevProm,m.provProm,div(m.gan,m.ent)],[CC.y,CC.v,CC.ser,CC.o,div(m.gan,m.ent)<0?CC.crit:CC.good],f$,{horizontal:1,h:220,labels:[div(m.ingresado,m.ent),m.fleteProm,m.fleteDevProm,m.provProm,div(m.gan,m.ent)].map(f$)})));
+  // 🧺 Unidades · 🏢 Oficina · 💳 Anticipados
+  const u1=L.filter(o=>units(o)===1).length,u4=L.filter(o=>units(o)>=4).length;
+  h+=sec('🧺 Unidades · 🏢 Oficina · 💳 Pagos',
+    box('Unidades por pedido',`${fN(m.uni)} unidades vendidas · compras de 2 o más: <b>${fP(div(m.um,m.comp))}</b>`,donut('ch-uni',[{name:'1 unidad',value:u1,c:CC.b},{name:'2 unidades',value:m.u2,c:CC.a},{name:'3 unidades',value:m.u3,c:CC.y},{name:'4 o más',value:u4,c:CC.o}],fN(m.uni),'unidades',280))+
+    box('Pedidos a oficina',`${fP(div(m.of.n,m.comp))} de los pedidos · efectividad ${fP(div(m.of.e,m.of.d))}`,m.of.n?donut('ch-ofi',[{name:'Entregados',value:m.of.e,c:CC.good},{name:'En proceso',value:m.of.d-m.of.e-m.of.v,c:CC.b},{name:'Devueltos',value:m.of.v,c:CC.ser},{name:'Cancelados',value:m.of.c,c:CC.crit}],fN(m.of.n),'a oficina',280):'<div class="empty" style="padding:40px">Sin pedidos a oficina en este rango</div>')+
+    box('Pago anticipado vs contraentrega',`Recaudado anticipado: <b>${f$(m.anticVal)}</b>`,donut('ch-ant',[{name:'Contraentrega',value:m.desp-m.antic,c:CC.b},{name:'Pago anticipado',value:m.antic,c:CC.good}],fP(div(m.antic,m.comp)),'anticipado',280))+
+    box('Ventas por comentarios',m.cm.n?`Efectividad ${fP(div(m.cm.e,m.cm.n))}`:'',m.cm.n?donut('ch-com',[{name:'Entregados',value:m.cm.e,c:CC.good},{name:'Devueltos',value:m.cm.v,c:CC.ser},{name:'Cancelados',value:m.cm.c,c:CC.crit}],fN(m.cm.n),'pedidos',280):'<div class="empty" style="padding:40px">Aún no hay pedidos marcados como "comentarios de Facebook"</div>'));
+  // 📍 Distribución
+  h+=sec('📍 Por transportadora, producto, ciudad y día de la semana',
+    box('Por transportadora','Pasa el mouse para ver la efectividad',estadoPorGrupo('ch-g-tr',groupsFor('transp',L,[])))+
+    box('Por producto','',estadoPorGrupo('ch-g-pr',groupsFor('producto',L,[])))+
+    box('Ciudades principales','',estadoPorGrupo('ch-g-ci',groupsFor('ciudad',L,[])))+
+    box('Fin de semana vs entre semana','',estadoPorGrupo('ch-g-se',groupsFor('semana',L,[]))));
+  return h;
 }
 
 // ───── Proyecciones ─────
@@ -702,6 +740,9 @@ async function load(){
   }catch(e){$('#view-metricas').innerHTML='<div class="empty">No se pudieron cargar los datos. Si el servidor estaba dormido, espera un minuto y recarga.</div>';return;}
   setRange(RANGE.type);
 }
+// calendario de rango (un solo campo: inicio → fin)
+if(window.flatpickr){window._fp=flatpickr('#r-range',{mode:'range',locale:(flatpickr.l10ns&&flatpickr.l10ns.es)||'default',dateFormat:'Y-m-d',altInput:true,altFormat:'j M Y',showMonths:innerWidth>820?2:1,maxDate:'today',
+  onChange:(d)=>{if(d.length===2){$('#r-from').value=iso(d[0]);$('#r-to').value=iso(d[1]);setRange('custom');}}});}
 load();
 </script>
 </body>
